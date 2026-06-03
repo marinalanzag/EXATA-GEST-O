@@ -1,0 +1,326 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Loader2, FileText, Upload, X } from 'lucide-react'
+import { toast } from 'sonner'
+import type { Inspection, Contract, InspectionType } from '@/types/database'
+
+interface ContractWithDetails extends Omit<Contract, 'imovel' | 'inquilino'> {
+  imovel?: { endereco: string; numero: string; bairro: string } | null
+  inquilino?: { nome: string } | null
+}
+
+interface InspectionFormProps {
+  onSuccess?: (inspection: Inspection) => void
+  onCancel?: () => void
+}
+
+export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
+  const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
+  const [contracts, setContracts] = useState<ContractWithDetails[]>([])
+
+  const [contratoId, setContratoId] = useState('')
+  const [tipo, setTipo] = useState<InspectionType>('entrada')
+  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
+  const [observacoes, setObservacoes] = useState('')
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [photoFiles, setPhotoFiles] = useState<FileList | null>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    async function fetchContracts() {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*, imovel:properties(endereco, numero, bairro), inquilino:profiles!inquilino_id(nome)')
+        .eq('ativo', true)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        toast.error('Erro ao carregar contratos')
+        console.error(error)
+      } else {
+        setContracts((data ?? []) as ContractWithDetails[])
+      }
+      setLoadingData(false)
+    }
+    fetchContracts()
+  }, [])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+
+    if (!contratoId) {
+      toast.error('Selecione um contrato')
+      return
+    }
+
+    const selectedContract = contracts.find((c) => c.id === contratoId)
+    if (!selectedContract) {
+      toast.error('Contrato inválido')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // 1. Create inspection record
+      const payload: Record<string, unknown> = {
+        imovel_id: selectedContract.imovel_id,
+        contrato_id: contratoId,
+        tipo,
+        data,
+        observacoes: observacoes.trim() || null,
+      }
+
+      const { data: created, error } = await supabase
+        .from('inspections')
+        .insert(payload)
+        .select('*, imovel:properties(*, proprietario:profiles!proprietario_id(*))')
+        .single()
+
+      if (error) throw error
+
+      const inspectionId = created.id
+
+      // 2. Upload PDF if provided
+      if (pdfFile) {
+        const pdfExt = pdfFile.name.split('.').pop() || 'pdf'
+        const pdfPath = `${inspectionId}/laudo.${pdfExt}`
+
+        const { error: pdfUploadError } = await supabase.storage
+          .from('inspections')
+          .upload(pdfPath, pdfFile)
+
+        if (pdfUploadError) {
+          console.error('Erro ao enviar PDF:', pdfUploadError)
+          toast.error('Vistoria criada, mas erro ao enviar PDF')
+        } else {
+          const { data: pdfUrl } = supabase.storage
+            .from('inspections')
+            .getPublicUrl(pdfPath)
+
+          await supabase
+            .from('inspections')
+            .update({ pdf_url: pdfUrl.publicUrl })
+            .eq('id', inspectionId)
+        }
+      }
+
+      // 3. Upload photos if provided
+      if (photoFiles && photoFiles.length > 0) {
+        let photoCount = 0
+        for (let i = 0; i < photoFiles.length; i++) {
+          const file = photoFiles[i]
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${crypto.randomUUID()}.${fileExt}`
+          const filePath = `${inspectionId}/${fileName}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('inspections')
+            .upload(filePath, file)
+
+          if (uploadError) {
+            console.error(`Erro no upload de ${file.name}:`, uploadError)
+            continue
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('inspections')
+            .getPublicUrl(filePath)
+
+          const { error: insertError } = await supabase
+            .from('inspection_photos')
+            .insert({
+              vistoria_id: inspectionId,
+              url: urlData.publicUrl,
+              comodo: 'Geral',
+              descricao: null,
+            })
+
+          if (!insertError) photoCount++
+        }
+
+        if (photoCount > 0) {
+          toast.success(`${photoCount} foto(s) adicionada(s)`)
+        }
+      }
+
+      toast.success('Vistoria cadastrada com sucesso')
+      onSuccess?.(created as Inspection)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      toast.error(`Erro ao salvar vistoria: ${message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label>Contrato *</Label>
+        <Select value={contratoId} onValueChange={(v) => setContratoId(v ?? '')}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione o contrato" />
+          </SelectTrigger>
+          <SelectContent>
+            {contracts.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.imovel?.endereco ?? '-'}, {c.imovel?.numero ?? ''} - {c.inquilino?.nome ?? 'Sem inquilino'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {contracts.length === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Nenhum contrato ativo encontrado. Cadastre um contrato antes.
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label>Tipo *</Label>
+          <Select value={tipo} onValueChange={(v) => v && setTipo(v as InspectionType)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="entrada">Entrada</SelectItem>
+              <SelectItem value="saida">Saída</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="data_vistoria">Data *</Label>
+          <Input
+            id="data_vistoria"
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      {/* PDF Upload */}
+      <div>
+        <Label>Laudo / PDF da Vistoria</Label>
+        <div className="mt-1">
+          {pdfFile ? (
+            <div className="flex items-center gap-2 rounded-lg border p-3 bg-muted/30">
+              <FileText className="h-5 w-5 text-red-600 shrink-0" />
+              <span className="text-sm truncate flex-1">{pdfFile.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => {
+                  setPdfFile(null)
+                  if (pdfInputRef.current) pdfInputRef.current.value = ''
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => pdfInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                Selecionar PDF
+              </Button>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Photos Upload */}
+      <div>
+        <Label>Fotos da Vistoria</Label>
+        <div className="mt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => photoInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4" />
+            Selecionar Fotos
+          </Button>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => setPhotoFiles(e.target.files)}
+          />
+          {photoFiles && photoFiles.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {photoFiles.length} foto(s) selecionada(s)
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="observacoes_vistoria">Observações</Label>
+        <Textarea
+          id="observacoes_vistoria"
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Observações gerais sobre a vistoria..."
+          rows={3}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" disabled={loading}>
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          Cadastrar Vistoria
+        </Button>
+      </div>
+    </form>
+  )
+}
