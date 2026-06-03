@@ -10,10 +10,19 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Building2, DollarSign, Receipt, AlertTriangle,
   TrendingUp, TrendingDown, Users, Calendar, ArrowRight,
-  Plus, Bell, BarChart3, Eye
+  Plus, Bell, BarChart3, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react'
+import { format, subMonths } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -51,12 +60,45 @@ export default function DashboardPage() {
   const [monthlyData, setMonthlyData] = useState<{ mes: string; projecao: number; receita: number; despesa: number }[]>([])
 
   const now = new Date()
-  const mesAtual = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  // Mês selecionado (padrão: mês corrente)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  // Gerar opções de meses (mês que vem + 12 meses para trás)
+  const monthOptions = (() => {
+    const opts: { value: string; label: string }[] = []
+    for (let i = -1; i < 12; i++) {
+      const d = subMonths(now, i)
+      const value = format(d, 'yyyy-MM')
+      const label = format(d, 'MMMM yyyy', { locale: ptBR })
+      opts.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) })
+    }
+    return opts
+  })()
+
+  const currentMonthKey = selectedMonth
+  const mesAtual = monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth
+
+  // Dados brutos (carrega uma vez)
+  const [rawData, setRawData] = useState<{
+    properties: any[]
+    contracts: any[]
+    expenses: any[]
+    boletos: any[]
+  } | null>(null)
 
   useEffect(() => {
     loadDashboard()
   }, [])
+
+  // Recalcular ao mudar mês selecionado
+  useEffect(() => {
+    if (rawData) {
+      computeStats(rawData.properties, rawData.contracts, rawData.expenses, rawData.boletos)
+    }
+  }, [selectedMonth, rawData])
 
   async function loadDashboard() {
     try {
@@ -72,93 +114,103 @@ export default function DashboardPage() {
         supabase.from('boletos').select('*, contrato:contracts(*, imovel:properties(*))'),
       ])
 
-      const total = properties?.length || 0
-      const locados = properties?.filter(p => p.status === 'locado').length || 0
-      setTotalImoveis(total)
-      setImoveisLocados(locados)
-
-      // Active contracts
-      const activeContracts = contracts?.filter(c => c.ativo) || []
-
-      // Projeção de faturamento = soma dos boletos emitidos no mês corrente
-      const boletosDoMes = boletos?.filter(b => b.referencia_mes === currentMonthKey || b.data_vencimento?.startsWith(currentMonthKey)) || []
-      const projecao = boletosDoMes.reduce((sum, b) => sum + Number(b.valor), 0)
-      // Se não tem boletos emitidos, usar soma dos contratos ativos como projeção
-      setProjecaoFaturamento(projecao > 0 ? projecao : activeContracts.reduce((sum, c) => sum + Number(c.valor_aluguel), 0))
-
-      // Receita efetiva = boletos pagos no mês corrente
-      const boletosPagosMes = boletosDoMes.filter(b => b.status === 'pago')
-      setReceitaEfetiva(boletosPagosMes.reduce((sum, b) => sum + Number(b.valor), 0))
-
-      // Despesas do mês
-      const monthExpenses = expenses?.filter(e => e.data_vencimento?.startsWith(currentMonthKey)) || []
-      setDespesasMes(monthExpenses.reduce((sum, e) => sum + Number(e.valor), 0))
-
-      // Boletos pendentes
-      const pendentes = boletos?.filter(b => b.status === 'pendente').length || 0
-      setBoletosPendentes(pendentes)
-
-      // Contratos vencendo em 60 dias
-      const in60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
-      const vencendo = activeContracts.filter(c => new Date(c.data_fim) <= in60Days).length
-      setContratosVencendo(vencendo)
-
-      // Property rows - listagem de imóveis com info resumida
-      const rows: PropertyRow[] = (properties || []).map(p => {
-        const contract = activeContracts.find(c => c.imovel_id === p.id)
-        const inquilino = contract?.inquilino as any
-        const dataFim = contract?.data_fim || ''
-        const diasRestantes = dataFim ? Math.ceil((new Date(dataFim).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : -1
-
-        return {
-          id: p.id,
-          complemento: p.complemento || '',
-          endereco: p.endereco,
-          numero: p.numero,
-          bairro: p.bairro,
-          status: p.status,
-          inquilino_nome: inquilino?.nome || '—',
-          valor_aluguel: contract ? Number(contract.valor_aluguel) : 0,
-          data_fim: dataFim,
-          dias_restantes: diasRestantes,
-        }
-      }).sort((a, b) => {
-        // Locados primeiro, depois por dias restantes
-        if (a.status === 'locado' && b.status !== 'locado') return -1
-        if (a.status !== 'locado' && b.status === 'locado') return 1
-        return a.dias_restantes - b.dias_restantes
+      setRawData({
+        properties: properties || [],
+        contracts: contracts || [],
+        expenses: expenses || [],
+        boletos: boletos || [],
       })
-      setPropertyRows(rows)
 
-      // Alertas
-      const alerts: typeof alertas = []
-      const vencidos = boletos?.filter(b => b.status === 'vencido' || (b.status === 'pendente' && new Date(b.data_vencimento) < now)).length || 0
-      if (vencidos > 0) alerts.push({ mensagem: `${vencidos} boleto(s) vencido(s)`, link: '/boletos', cor: 'bg-red-50 border-red-200 text-red-800' })
-      if (vencendo > 0) alerts.push({ mensagem: `${vencendo} contrato(s) vencendo em 60 dias`, link: '/contratos', cor: 'bg-yellow-50 border-yellow-200 text-yellow-800' })
-      const contasVencer = monthExpenses.filter(e => !e.pago && new Date(e.data_vencimento) >= now && new Date(e.data_vencimento) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)).length
-      if (contasVencer > 0) alerts.push({ mensagem: `${contasVencer} conta(s) a vencer esta semana`, link: '/financeiro', cor: 'bg-orange-50 border-orange-200 text-orange-800' })
-      setAlertas(alerts)
-
-      // Chart - últimos 6 meses
-      const months: typeof monthlyData = []
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        const mesLabel = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
-        const mesBoletos = boletos?.filter(b => b.referencia_mes === key || b.data_vencimento?.startsWith(key)) || []
-        const mesProjecao = mesBoletos.reduce((sum, b) => sum + Number(b.valor), 0) || activeContracts.reduce((sum, c) => sum + Number(c.valor_aluguel), 0)
-        const mesReceita = mesBoletos.filter(b => b.status === 'pago').reduce((sum, b) => sum + Number(b.valor), 0)
-        const mesExpenses = expenses?.filter(e => e.data_vencimento?.startsWith(key)) || []
-        const mesDespesa = mesExpenses.reduce((sum, e) => sum + Number(e.valor), 0)
-        months.push({ mes: mesLabel, projecao: mesProjecao, receita: mesReceita, despesa: mesDespesa })
-      }
-      setMonthlyData(months)
-
+      computeStats(properties || [], contracts || [], expenses || [], boletos || [])
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  function computeStats(properties: any[], contracts: any[], expenses: any[], boletos: any[]) {
+    const total = properties.length
+    const locados = properties.filter(p => p.status === 'locado').length
+    setTotalImoveis(total)
+    setImoveisLocados(locados)
+
+    // Active contracts
+    const activeContracts = contracts.filter(c => c.ativo)
+
+    // Projeção de faturamento = soma dos boletos emitidos no mês selecionado
+    const boletosDoMes = boletos.filter(b => b.referencia_mes === currentMonthKey || b.data_vencimento?.startsWith(currentMonthKey))
+    const projecao = boletosDoMes.reduce((sum: number, b: any) => sum + Number(b.valor), 0)
+    // Se não tem boletos emitidos, usar soma dos contratos ativos como projeção
+    setProjecaoFaturamento(projecao > 0 ? projecao : activeContracts.reduce((sum: number, c: any) => sum + Number(c.valor_aluguel), 0))
+
+    // Receita efetiva = boletos pagos no mês selecionado
+    const boletosPagosMes = boletosDoMes.filter((b: any) => b.status === 'pago')
+    setReceitaEfetiva(boletosPagosMes.reduce((sum: number, b: any) => sum + Number(b.valor), 0))
+
+    // Despesas do mês selecionado
+    const monthExpenses = expenses.filter(e => e.data_vencimento?.startsWith(currentMonthKey))
+    setDespesasMes(monthExpenses.reduce((sum: number, e: any) => sum + Number(e.valor), 0))
+
+    // Boletos pendentes (geral, não por mês)
+    const pendentes = boletos.filter((b: any) => b.status === 'pendente').length
+    setBoletosPendentes(pendentes)
+
+    // Contratos vencendo em 60 dias
+    const in60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+    const vencendo = activeContracts.filter((c: any) => new Date(c.data_fim) <= in60Days).length
+    setContratosVencendo(vencendo)
+
+    // Property rows
+    const rows: PropertyRow[] = properties.map(p => {
+      const contract = activeContracts.find((c: any) => c.imovel_id === p.id)
+      const inquilino = contract?.inquilino as any
+      const dataFim = contract?.data_fim || ''
+      const diasRestantes = dataFim ? Math.ceil((new Date(dataFim).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : -1
+
+      return {
+        id: p.id,
+        complemento: p.complemento || '',
+        endereco: p.endereco,
+        numero: p.numero,
+        bairro: p.bairro,
+        status: p.status,
+        inquilino_nome: inquilino?.nome || '—',
+        valor_aluguel: contract ? Number(contract.valor_aluguel) : 0,
+        data_fim: dataFim,
+        dias_restantes: diasRestantes,
+      }
+    }).sort((a, b) => {
+      if (a.status === 'locado' && b.status !== 'locado') return -1
+      if (a.status !== 'locado' && b.status === 'locado') return 1
+      return a.dias_restantes - b.dias_restantes
+    })
+    setPropertyRows(rows)
+
+    // Alertas
+    const alerts: typeof alertas = []
+    const vencidos = boletos.filter((b: any) => b.status === 'vencido' || (b.status === 'pendente' && new Date(b.data_vencimento) < now)).length
+    if (vencidos > 0) alerts.push({ mensagem: `${vencidos} boleto(s) vencido(s)`, link: '/boletos', cor: 'bg-red-50 border-red-200 text-red-800' })
+    if (vencendo > 0) alerts.push({ mensagem: `${vencendo} contrato(s) vencendo em 60 dias`, link: '/contratos', cor: 'bg-yellow-50 border-yellow-200 text-yellow-800' })
+    const contasVencer = monthExpenses.filter((e: any) => !e.pago && new Date(e.data_vencimento) >= now && new Date(e.data_vencimento) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)).length
+    if (contasVencer > 0) alerts.push({ mensagem: `${contasVencer} conta(s) a vencer esta semana`, link: '/financeiro', cor: 'bg-orange-50 border-orange-200 text-orange-800' })
+    setAlertas(alerts)
+
+    // Chart - 6 meses centrados no mês selecionado (3 antes, selecionado, 2 depois)
+    const [selYear, selMon] = currentMonthKey.split('-').map(Number)
+    const months: typeof monthlyData = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(selYear, selMon - 1 - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const mesLabel = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+      const mesBoletos = boletos.filter((b: any) => b.referencia_mes === key || b.data_vencimento?.startsWith(key))
+      const mesProjecao = mesBoletos.reduce((sum: number, b: any) => sum + Number(b.valor), 0) || activeContracts.reduce((sum: number, c: any) => sum + Number(c.valor_aluguel), 0)
+      const mesReceita = mesBoletos.filter((b: any) => b.status === 'pago').reduce((sum: number, b: any) => sum + Number(b.valor), 0)
+      const mesExp = expenses.filter((e: any) => e.data_vencimento?.startsWith(key))
+      const mesDespesa = mesExp.reduce((sum: number, e: any) => sum + Number(e.valor), 0)
+      months.push({ mes: mesLabel, projecao: mesProjecao, receita: mesReceita, despesa: mesDespesa })
+    }
+    setMonthlyData(months)
   }
 
   const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
@@ -193,10 +245,45 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 capitalize">{mesAtual}</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                const idx = monthOptions.findIndex(m => m.value === selectedMonth)
+                if (idx < monthOptions.length - 1) setSelectedMonth(monthOptions[idx + 1].value)
+              }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[180px] h-8 text-sm font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map(m => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                const idx = monthOptions.findIndex(m => m.value === selectedMonth)
+                if (idx > 0) setSelectedMonth(monthOptions[idx - 1].value)
+              }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => router.push('/imoveis')} variant="outline">
