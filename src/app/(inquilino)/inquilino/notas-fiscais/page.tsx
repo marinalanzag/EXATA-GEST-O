@@ -25,6 +25,7 @@ import {
 import { FileText, Download, Loader2, Receipt } from 'lucide-react'
 import { format, parseISO, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { nomeImovel } from '@/lib/utils'
 import type { Invoice, Contract, Property } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -197,9 +198,7 @@ export default function InquilinoNotasFiscais() {
                 <TableBody>
                   {filtered.map((inv) => {
                     const imovel = inv.contrato?.imovel
-                    const endereco = imovel
-                      ? `${imovel.endereco}, ${imovel.numero}`
-                      : '—'
+                    const endereco = nomeImovel(imovel)
                     const refLabel = (() => {
                       try {
                         const [y, m] = inv.referencia_mes.split('-')

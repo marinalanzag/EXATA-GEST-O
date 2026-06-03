@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { Plus, Search, Building2, Loader2 } from 'lucide-react'
 import { PropertyForm } from '@/components/forms/property-form'
+import { nomeImovel } from '@/lib/utils'
 import type { Property, PropertyStatus, Profile } from '@/types/database'
 
 const formatCurrency = (value: number) =>
@@ -243,7 +244,7 @@ export default function ImoveisPage() {
                         <TableCell>
                           <div>
                             <span className="font-medium">
-                              {property.endereco}, {property.numero}
+                              {nomeImovel(property)}
                             </span>
                             {property.complemento && (
                               <span className="text-muted-foreground"> - {property.complemento}</span>
@@ -288,8 +289,7 @@ export default function ImoveisPage() {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-sm">
-                        {property.endereco}, {property.numero}
-                        {property.complemento && ` - ${property.complemento}`}
+                        {nomeImovel(property)}
                       </CardTitle>
                       <Badge variant="secondary" className={statusConf.className}>
                         {statusConf.label}

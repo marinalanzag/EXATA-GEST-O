@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { nomeImovel } from '@/lib/utils'
 import type { Contract, Property, Profile } from '@/types/database'
 
 const formatCurrency = (value: number) =>
@@ -316,7 +317,7 @@ export default function ContratosPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      {c.imovel?.endereco ?? '-'}, {c.imovel?.numero ?? ''}
+                      {nomeImovel(c.imovel)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {c.inquilino?.nome ?? '-'} · Vencimento: {formatDate(c.data_fim)}
@@ -365,7 +366,7 @@ export default function ContratosPage() {
                 <SelectItem value="todos">Todos os imóveis</SelectItem>
                 {properties.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.endereco}, {p.numero}
+                    {nomeImovel(p)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -441,7 +442,7 @@ export default function ContratosPage() {
                       >
                         <TableCell>
                           <span className="font-medium">
-                            {contract.imovel?.endereco ?? '-'}, {contract.imovel?.numero ?? ''}
+                            {nomeImovel(contract.imovel)}
                           </span>
                           <p className="text-xs text-muted-foreground">
                             {contract.imovel?.bairro ?? ''}
@@ -493,7 +494,7 @@ export default function ContratosPage() {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-sm">
-                        {contract.imovel?.endereco ?? '-'}, {contract.imovel?.numero ?? ''}
+                        {nomeImovel(contract.imovel)}
                       </CardTitle>
                       <Badge variant="secondary" className={statusConf.className}>
                         {statusConf.label}

@@ -59,6 +59,7 @@ import {
 } from 'recharts'
 import { format, parseISO, subMonths, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { nomeImovel } from '@/lib/utils'
 import type { Expense, Property, Contract, ExpenseCategory, ExpensePayer } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -606,7 +607,7 @@ export default function FinanceiroPage() {
                 <SelectItem value="todos">Todos os imóveis</SelectItem>
                 {properties.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.endereco}, {p.numero}
+                    {nomeImovel(p)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -686,7 +687,7 @@ export default function FinanceiroPage() {
                       <TableRow key={expense.id}>
                         <TableCell>
                           <span className="font-medium">
-                            {expense.imovel?.endereco ?? '-'}, {expense.imovel?.numero ?? ''}
+                            {nomeImovel(expense.imovel)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -757,7 +758,7 @@ export default function FinanceiroPage() {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-sm">
-                        {expense.imovel?.endereco ?? '-'}, {expense.imovel?.numero ?? ''}
+                        {nomeImovel(expense.imovel)}
                       </CardTitle>
                       <Badge variant="secondary" className={statusConf.className}>
                         {statusConf.label}
@@ -928,7 +929,7 @@ export default function FinanceiroPage() {
                 <SelectContent>
                   {properties.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.endereco}, {p.numero}
+                      {nomeImovel(p)}
                     </SelectItem>
                   ))}
                 </SelectContent>

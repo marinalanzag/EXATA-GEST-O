@@ -46,6 +46,7 @@ import {
 import { format, parseISO, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { generateInvoiceMessage } from '@/lib/whatsapp'
+import { nomeImovel } from '@/lib/utils'
 import type { Invoice, Contract, Property, Profile } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -421,7 +422,7 @@ export default function NotasFiscaisPage() {
                 <SelectItem value="all">Todos os imóveis</SelectItem>
                 {properties.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.endereco}, {p.numero}
+                    {nomeImovel(p)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -470,9 +471,7 @@ export default function NotasFiscaisPage() {
                     const imovel = inv.contrato?.imovel || inv.imovel
                     const inquilino = inv.contrato?.inquilino
                     const isAirbnb = inv.tipo === 'airbnb'
-                    const enderecoCompleto = imovel
-                      ? `${imovel.endereco}, ${imovel.numero}`
-                      : '—'
+                    const enderecoCompleto = nomeImovel(imovel)
                     const refLabel = (() => {
                       try {
                         const [y, m] = inv.referencia_mes.split('-')
@@ -575,9 +574,7 @@ export default function NotasFiscaisPage() {
               const imovel = inv.contrato?.imovel || inv.imovel
               const inquilino = inv.contrato?.inquilino
               const isAirbnb = inv.tipo === 'airbnb'
-              const enderecoCompleto = imovel
-                ? `${imovel.endereco}, ${imovel.numero}`
-                : '—'
+              const enderecoCompleto = nomeImovel(imovel)
               const refLabel = (() => {
                 try {
                   const [y, m] = inv.referencia_mes.split('-')
@@ -728,7 +725,7 @@ export default function NotasFiscaisPage() {
                   <SelectContent>
                     {contracts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.imovel?.endereco}, {c.imovel?.numero} — {c.inquilino?.nome}
+                        {nomeImovel(c.imovel)} — {c.inquilino?.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -750,7 +747,7 @@ export default function NotasFiscaisPage() {
                   <SelectContent>
                     {properties.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.endereco}, {p.numero}
+                        {nomeImovel(p)}
                       </SelectItem>
                     ))}
                   </SelectContent>

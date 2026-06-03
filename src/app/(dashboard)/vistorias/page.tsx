@@ -31,6 +31,7 @@ import { Plus, Camera, Loader2, Image } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { InspectionForm } from '@/components/forms/inspection-form'
+import { nomeImovel } from '@/lib/utils'
 import type { Inspection, Property } from '@/types/database'
 
 const formatDate = (dateStr: string) => {
@@ -128,7 +129,7 @@ export default function VistoriasPage() {
                 <SelectItem value="todos">Todos os imoveis</SelectItem>
                 {imoveis.map((i) => (
                   <SelectItem key={i.id} value={i.id}>
-                    {i.endereco}, {i.numero}
+                    {nomeImovel(i)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -181,7 +182,7 @@ export default function VistoriasPage() {
                       >
                         <TableCell>
                           <span className="font-medium">
-                            {vistoria.imovel?.endereco ?? '-'}, {vistoria.imovel?.numero ?? ''}
+                            {nomeImovel(vistoria.imovel)}
                           </span>
                           <p className="text-xs text-muted-foreground">
                             {vistoria.imovel?.bairro ?? ''}
@@ -224,7 +225,7 @@ export default function VistoriasPage() {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-sm">
-                        {vistoria.imovel?.endereco ?? '-'}, {vistoria.imovel?.numero ?? ''}
+                        {nomeImovel(vistoria.imovel)}
                       </CardTitle>
                       <Badge variant="secondary" className={tipoConf.className}>
                         {tipoConf.label}

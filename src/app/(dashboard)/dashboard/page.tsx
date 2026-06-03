@@ -21,6 +21,7 @@ import {
 
 interface PropertyRow {
   id: string
+  complemento: string
   endereco: string
   numero: string
   bairro: string
@@ -111,6 +112,7 @@ export default function DashboardPage() {
 
         return {
           id: p.id,
+          complemento: p.complemento || '',
           endereco: p.endereco,
           numero: p.numero,
           bairro: p.bairro,
@@ -324,8 +326,10 @@ export default function DashboardPage() {
                   <TableRow key={row.id} className={row.dias_restantes >= 0 && row.dias_restantes <= 30 ? 'bg-red-50/50' : row.dias_restantes > 0 && row.dias_restantes <= 90 ? 'bg-yellow-50/50' : ''}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{row.endereco}, {row.numero}</p>
-                        <p className="text-xs text-gray-500">{row.bairro}</p>
+                        <p className="font-medium">{row.complemento || `${row.endereco}, ${row.numero}`}</p>
+                        {row.complemento && (
+                          <p className="text-xs text-gray-500">{row.endereco}, {row.numero}</p>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{statusBadge(row.status)}</TableCell>

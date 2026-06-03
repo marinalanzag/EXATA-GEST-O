@@ -50,6 +50,7 @@ import {
 import { format, parseISO, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { generateBoletoMessage } from '@/lib/whatsapp'
+import { nomeImovel } from '@/lib/utils'
 import type { Boleto, Contract, Property, Profile, BoletoStatus } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -474,7 +475,7 @@ export default function BoletosPage() {
             <SelectItem value="all">Todos os imóveis</SelectItem>
             {properties.map((p) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.endereco}, {p.numero}
+                {nomeImovel(p)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -526,9 +527,7 @@ export default function BoletosPage() {
                     const imovel = boleto.contrato?.imovel
                     const inquilino = boleto.contrato?.inquilino
                     const st = STATUS_CONFIG[boleto.status]
-                    const enderecoCompleto = imovel
-                      ? `${imovel.endereco}, ${imovel.numero}`
-                      : '—'
+                    const enderecoCompleto = nomeImovel(imovel)
                     const refLabel = (() => {
                       try {
                         const [y, m] = boleto.referencia_mes.split('-')
@@ -655,7 +654,7 @@ export default function BoletosPage() {
             <div className="space-y-4">
               {/* Info */}
               <div className="rounded-lg border p-3 bg-muted/20 space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Imóvel:</span> {editBoleto.contrato?.imovel?.endereco}, {editBoleto.contrato?.imovel?.numero}</p>
+                <p><span className="text-muted-foreground">Imóvel:</span> {nomeImovel(editBoleto.contrato?.imovel)}</p>
                 <p><span className="text-muted-foreground">Inquilino:</span> {editBoleto.contrato?.inquilino?.nome}</p>
                 <p><span className="text-muted-foreground">Valor:</span> {formatCurrency(editBoleto.valor)}</p>
                 <p><span className="text-muted-foreground">Vencimento:</span> {formatDate(editBoleto.data_vencimento)}</p>
@@ -803,7 +802,7 @@ export default function BoletosPage() {
                       />
                       <div className="flex-1 text-sm">
                         <p className="font-medium">
-                          {contract.imovel?.endereco}, {contract.imovel?.numero}
+                          {nomeImovel(contract.imovel)}
                         </p>
                         <p className="text-muted-foreground">
                           {contract.inquilino?.nome} &mdash;{' '}

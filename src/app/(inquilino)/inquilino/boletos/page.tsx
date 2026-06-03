@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { nomeImovel } from '@/lib/utils'
 import type { Boleto, Contract, Property, BoletoStatus } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -271,9 +272,7 @@ export default function InquilinoBoletos() {
                   {filtered.map((boleto) => {
                     const imovel = boleto.contrato?.imovel
                     const st = STATUS_CONFIG[boleto.status]
-                    const endereco = imovel
-                      ? `${imovel.endereco}, ${imovel.numero}`
-                      : '—'
+                    const endereco = nomeImovel(imovel)
                     const refLabel = (() => {
                       try {
                         const [y, m] = boleto.referencia_mes.split('-')
