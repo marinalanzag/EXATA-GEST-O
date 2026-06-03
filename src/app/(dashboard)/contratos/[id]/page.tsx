@@ -26,6 +26,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   ArrowLeft,
   Edit,
@@ -35,10 +37,12 @@ import {
   Download,
   Loader2,
   Eye,
+  CalendarPlus,
+  AlertTriangle,
 } from 'lucide-react'
 import { ContractForm } from '@/components/forms/contract-form'
 import { toast } from 'sonner'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO, differenceInDays, differenceInMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Contract, Inspection, Boleto, Invoice, BoletoStatus } from '@/types/database'
 
@@ -103,6 +107,10 @@ export default function ContratoDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [encerrarDialogOpen, setEncerrarDialogOpen] = useState(false)
   const [encerrarLoading, setEncerrarLoading] = useState(false)
+  const [prorrogarDialogOpen, setProrrogarDialogOpen] = useState(false)
+  const [prorrogarLoading, setProrrogarLoading] = useState(false)
+  const [novaDataFim, setNovaDataFim] = useState('')
+  const [novoValor, setNovoValor] = useState('')
 
   const isGestor = profile?.role === 'gestor'
 
@@ -188,6 +196,52 @@ export default function ContratoDetailPage() {
       setEncerrarLoading(false)
     }
   }
+
+  async function handleProrrogar() {
+    if (!contract || !novaDataFim) return
+    setProrrogarLoading(true)
+
+    try {
+      const payload: Record<string, unknown> = {
+        data_fim: novaDataFim,
+        ativo: true,
+      }
+
+      if (novoValor.trim()) {
+        const valor = parseFloat(novoValor.replace(',', '.'))
+        if (!isNaN(valor) && valor > 0) {
+          payload.valor_aluguel = valor
+        }
+      }
+
+      const { error } = await supabase
+        .from('contracts')
+        .update(payload)
+        .eq('id', contract.id)
+
+      if (error) throw error
+
+      toast.success('Contrato prorrogado com sucesso!')
+      setProrrogarDialogOpen(false)
+      setNovaDataFim('')
+      setNovoValor('')
+      fetchData()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      toast.error(`Erro ao prorrogar contrato: ${message}`)
+    } finally {
+      setProrrogarLoading(false)
+    }
+  }
+
+  // Verificar se o contrato precisa de reajuste (mais de 12 meses desde o início)
+  const mesesContrato = contract
+    ? differenceInMonths(
+        novaDataFim ? parseISO(novaDataFim) : parseISO(contract.data_fim),
+        parseISO(contract.data_inicio)
+      )
+    : 0
+  const precisaReajuste = mesesContrato >= 12
 
   if (loading) {
     return (
@@ -285,32 +339,106 @@ export default function ContratoDetailPage() {
             </Dialog>
 
             {contract.ativo && (
-              <Dialog open={encerrarDialogOpen} onOpenChange={setEncerrarDialogOpen}>
-                <DialogTrigger
-                  render={
-                    <Button variant="destructive">
-                      Encerrar Contrato
-                    </Button>
-                  }
-                />
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Encerrar Contrato</DialogTitle>
-                    <DialogDescription>
-                      Tem certeza que deseja encerrar este contrato? O imovel sera marcado como disponivel.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <DialogClose render={<Button variant="outline" />}>
-                      Cancelar
-                    </DialogClose>
-                    <Button variant="destructive" onClick={handleEncerrarContrato} disabled={encerrarLoading}>
-                      {encerrarLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Confirmar Encerramento
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <>
+                {/* Prorrogar */}
+                <Dialog open={prorrogarDialogOpen} onOpenChange={(open) => {
+                  setProrrogarDialogOpen(open)
+                  if (!open) { setNovaDataFim(''); setNovoValor('') }
+                }}>
+                  <DialogTrigger
+                    render={
+                      <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <CalendarPlus className="h-4 w-4" />
+                        Prorrogar
+                      </Button>
+                    }
+                  />
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Prorrogar Contrato</DialogTitle>
+                      <DialogDescription>
+                        Contrato atual: {formatDate(contract.data_inicio)} a {formatDate(contract.data_fim)} — Valor: {formatCurrency(contract.valor_aluguel)}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div>
+                        <Label htmlFor="novaDataFim">Nova data de término *</Label>
+                        <Input
+                          id="novaDataFim"
+                          type="date"
+                          value={novaDataFim}
+                          onChange={(e) => setNovaDataFim(e.target.value)}
+                          min={contract.data_fim}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="novoValor">Novo valor do aluguel (opcional)</Label>
+                        <Input
+                          id="novoValor"
+                          type="text"
+                          placeholder={`Atual: ${formatCurrency(contract.valor_aluguel)}`}
+                          value={novoValor}
+                          onChange={(e) => setNovoValor(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Deixe em branco para manter o valor atual.
+                        </p>
+                      </div>
+
+                      {/* Alerta de reajuste IGPM/IPCA */}
+                      {novaDataFim && differenceInMonths(parseISO(novaDataFim), parseISO(contract.data_inicio)) >= 12 && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+                          <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-semibold">Atenção — Reajuste de aluguel</p>
+                            <p className="mt-1">
+                              Com esta prorrogação, o contrato ultrapassa 12 meses.
+                              Pode ser necessário aplicar reajuste pelo <strong>IGPM</strong> ou <strong>IPCA</strong> conforme cláusula contratual.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <DialogClose render={<Button variant="outline" />}>
+                        Cancelar
+                      </DialogClose>
+                      <Button onClick={handleProrrogar} disabled={prorrogarLoading || !novaDataFim}>
+                        {prorrogarLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Confirmar Prorrogação
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Encerrar */}
+                <Dialog open={encerrarDialogOpen} onOpenChange={setEncerrarDialogOpen}>
+                  <DialogTrigger
+                    render={
+                      <Button variant="destructive">
+                        Encerrar Contrato
+                      </Button>
+                    }
+                  />
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Encerrar Contrato</DialogTitle>
+                      <DialogDescription>
+                        Tem certeza que deseja encerrar este contrato? O imóvel será marcado como disponível.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <DialogClose render={<Button variant="outline" />}>
+                        Cancelar
+                      </DialogClose>
+                      <Button variant="destructive" onClick={handleEncerrarContrato} disabled={encerrarLoading}>
+                        {encerrarLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Confirmar Encerramento
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
           </div>
         )}
@@ -327,6 +455,19 @@ export default function ContratoDetailPage() {
 
         {/* Detalhes Tab */}
         <TabsContent value="detalhes">
+          {/* Alerta de reajuste para contratos com mais de 12 meses */}
+          {contract.ativo && precisaReajuste && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 mb-4">
+              <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold">Reajuste de aluguel pode ser necessário</p>
+                <p className="mt-1">
+                  Este contrato tem <strong>{mesesContrato} meses</strong> desde o início ({formatDate(contract.data_inicio)}).
+                  Verifique se é necessário aplicar reajuste pelo IGPM ou IPCA conforme cláusula contratual.
+                </p>
+              </div>
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
