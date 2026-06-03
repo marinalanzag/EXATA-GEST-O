@@ -21,7 +21,7 @@ import {
   TrendingUp, TrendingDown, Users, Calendar, ArrowRight,
   Plus, Bell, BarChart3, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react'
-import { format, subMonths } from 'date-fns'
+import { format, subMonths, differenceInMonths, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import {
@@ -194,6 +194,26 @@ export default function DashboardPage() {
     if (vencendo > 0) alerts.push({ mensagem: `${vencendo} contrato(s) vencendo em 60 dias`, link: '/contratos', cor: 'bg-yellow-50 border-yellow-200 text-yellow-800' })
     const contasVencer = monthExpenses.filter((e: any) => !e.pago && new Date(e.data_vencimento) >= now && new Date(e.data_vencimento) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)).length
     if (contasVencer > 0) alerts.push({ mensagem: `${contasVencer} conta(s) a vencer esta semana`, link: '/financeiro', cor: 'bg-orange-50 border-orange-200 text-orange-800' })
+
+    // Contratos com 12+ meses que podem precisar de reajuste IGPM/IPCA
+    // Alerta quando o aniversário do contrato cai no mês selecionado
+    const contratosReajuste = activeContracts.filter((c: any) => {
+      const meses = differenceInMonths(now, parseISO(c.data_inicio))
+      if (meses < 12) return false
+      // Verificar se o mês/dia de início coincide com o mês selecionado (aniversário)
+      const inicio = parseISO(c.data_inicio)
+      const mesInicio = inicio.getMonth() + 1
+      const [, selMon] = currentMonthKey.split('-').map(Number)
+      return mesInicio === selMon
+    })
+    if (contratosReajuste.length > 0) {
+      alerts.push({
+        mensagem: `${contratosReajuste.length} contrato(s) completando aniversário — verificar reajuste IGPM/IPCA`,
+        link: '/contratos',
+        cor: 'bg-amber-50 border-amber-200 text-amber-800',
+      })
+    }
+
     setAlertas(alerts)
 
     // Chart - 6 meses centrados no mês selecionado (3 antes, selecionado, 2 depois)
