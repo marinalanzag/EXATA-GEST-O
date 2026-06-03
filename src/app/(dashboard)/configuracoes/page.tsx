@@ -128,12 +128,21 @@ export default function ConfiguracoesPage() {
 
   async function handleDeleteUser(userId: string) {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return
-    const { error } = await supabase.from('profiles').delete().eq('id', userId)
-    if (error) {
+    try {
+      const res = await fetch('/api/auth/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Erro ao excluir usuário')
+      } else {
+        toast.success('Usuário excluído')
+        loadUsers()
+      }
+    } catch {
       toast.error('Erro ao excluir usuário')
-    } else {
-      toast.success('Usuário excluído')
-      loadUsers()
     }
   }
 
