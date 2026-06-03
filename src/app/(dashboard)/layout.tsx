@@ -20,10 +20,9 @@ export default function DashboardLayout({
         router.push('/login')
         return
       }
-      if (profile && profile.role !== 'gestor') {
-        if (profile.role === 'proprietario') {
-          router.push('/proprietario')
-        } else if (profile.role === 'inquilino') {
+      // Gestor e proprietário acessam o mesmo dashboard
+      if (profile && profile.role !== 'gestor' && profile.role !== 'proprietario') {
+        if (profile.role === 'inquilino') {
           router.push('/inquilino')
         }
       }
@@ -41,7 +40,7 @@ export default function DashboardLayout({
     )
   }
 
-  if (!user || (profile && profile.role !== 'gestor')) {
+  if (!user || (profile && profile.role !== 'gestor' && profile.role !== 'proprietario')) {
     return null
   }
 

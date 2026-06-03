@@ -61,10 +61,8 @@ export default function LoginPage() {
 
         const role = profile?.role
 
-        if (role === 'gestor') {
+        if (role === 'gestor' || role === 'proprietario') {
           router.push('/dashboard')
-        } else if (role === 'proprietario') {
-          router.push('/proprietario')
         } else if (role === 'inquilino') {
           router.push('/inquilino')
         } else {
