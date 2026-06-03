@@ -32,7 +32,7 @@ import {
 import { Plus, Search, Building2, Loader2 } from 'lucide-react'
 import { PropertyForm } from '@/components/forms/property-form'
 import { nomeImovel } from '@/lib/utils'
-import type { Property, PropertyStatus, Profile } from '@/types/database'
+import type { Property, PropertyStatus } from '@/types/database'
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -53,8 +53,6 @@ export default function ImoveisPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('todos')
-  const [proprietarioFilter, setProprietarioFilter] = useState<string>('todos')
-  const [proprietarios, setProprietarios] = useState<Profile[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const fetchProperties = useCallback(async () => {
@@ -98,17 +96,6 @@ export default function ImoveisPage() {
     fetchProperties()
   }, [fetchProperties])
 
-  useEffect(() => {
-    async function fetchProprietarios() {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'proprietario')
-        .order('nome')
-      setProprietarios((data ?? []) as Profile[])
-    }
-    fetchProprietarios()
-  }, [])
 
   const filtered = properties.filter((p) => {
     const matchSearch =
@@ -118,10 +105,7 @@ export default function ImoveisPage() {
       p.numero.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchStatus = statusFilter === 'todos' || p.status === statusFilter
-    const matchProprietario =
-      proprietarioFilter === 'todos' || p.proprietario_id === proprietarioFilter
-
-    return matchSearch && matchStatus && matchProprietario
+    return matchSearch && matchStatus
   })
 
   return (
@@ -183,19 +167,6 @@ export default function ImoveisPage() {
                 <SelectItem value="manutencao">Manutenção</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={proprietarioFilter} onValueChange={(v) => setProprietarioFilter(v ?? 'todos')}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Proprietário" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os proprietários</SelectItem>
-                {proprietarios.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -228,7 +199,6 @@ export default function ImoveisPage() {
                     <TableHead>Endereço</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Proprietário</TableHead>
                     <TableHead className="text-right">Valor Aluguel</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -259,9 +229,6 @@ export default function ImoveisPage() {
                           <Badge variant="secondary" className={statusConf.className}>
                             {statusConf.label}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {property.proprietario?.nome ?? '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {property.valor_aluguel
@@ -307,9 +274,6 @@ export default function ImoveisPage() {
                           : '-'}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Proprietário: {property.proprietario?.nome ?? '-'}
-                    </p>
                   </CardContent>
                 </Card>
               )

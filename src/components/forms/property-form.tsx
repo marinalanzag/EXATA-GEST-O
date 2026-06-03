@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
+
+// Proprietário fixo — Ivo Martins (todos os imóveis pertencem ao mesmo proprietário)
+const PROPRIETARIO_ID = '9846dd0b-b9dc-44ed-be60-8ab6119545b7' // Ivo Martins
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,7 +29,6 @@ interface PropertyFormProps {
 const PROPERTY_TYPES = ['Residencial', 'Comercial', 'Terreno', 'Galpão']
 
 export function PropertyForm({ property, onSuccess, onCancel }: PropertyFormProps) {
-  const { profile } = useAuth()
   const [loading, setLoading] = useState(false)
 
   const [endereco, setEndereco] = useState(property?.endereco ?? '')
@@ -61,7 +62,7 @@ export function PropertyForm({ property, onSuccess, onCancel }: PropertyFormProp
       estado: estado.trim(),
       cep: cep.trim(),
       tipo,
-      proprietario_id: profile!.id,
+      proprietario_id: PROPRIETARIO_ID,
       status,
       despesas_pagas_por: despesasPagasPor,
       observacoes: observacoes.trim() || null,
