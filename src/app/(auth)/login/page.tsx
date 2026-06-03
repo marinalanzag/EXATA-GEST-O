@@ -15,7 +15,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Building2, Loader2 } from 'lucide-react'
+import Image from 'next/image'
+import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -80,14 +81,18 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg">
-          <Building2 className="h-7 w-7" />
+        <div className="mx-auto mb-2">
+          <Image
+            src="/logo.jpg"
+            alt="EXATA Negócios Imobiliários"
+            width={160}
+            height={160}
+            className="mx-auto"
+            priority
+          />
         </div>
-        <CardTitle className="text-2xl font-bold tracking-tight">
-          EXATA
-        </CardTitle>
         <CardDescription>
-          Negócios Imobiliários — Acesse sua conta
+          Acesse sua conta
         </CardDescription>
       </CardHeader>
       <CardContent>

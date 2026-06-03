@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
@@ -76,10 +77,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       {/* Branding */}
-      <div className="flex h-16 items-center gap-3 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-sm">
-          EX
-        </div>
+      <div className="flex h-16 items-center gap-3 px-4">
+        <Image
+          src="/logo.jpg"
+          alt="EXATA"
+          width={44}
+          height={44}
+          className="rounded-lg"
+        />
         <div>
           <h1 className="text-base font-bold tracking-tight text-foreground">
             EXATA

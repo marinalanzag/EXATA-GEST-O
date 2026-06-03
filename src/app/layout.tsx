@@ -13,6 +13,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'EXATA Negócios Imobiliários',
   description: 'Sistema de gestão imobiliária',
+  icons: {
+    icon: '/logo.jpg',
+    apple: '/logo.jpg',
+  },
 }
 
 export default function RootLayout({
