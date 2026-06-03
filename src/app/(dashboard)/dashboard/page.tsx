@@ -282,7 +282,7 @@ export default function DashboardPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v)}>
               <SelectTrigger className="w-[180px] h-8 text-sm font-medium">
                 <SelectValue />
               </SelectTrigger>
