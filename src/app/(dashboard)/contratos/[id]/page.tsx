@@ -39,12 +39,16 @@ import {
   Eye,
   CalendarPlus,
   AlertTriangle,
+  Plus,
+  Upload,
+  Trash2,
 } from 'lucide-react'
 import { ContractForm } from '@/components/forms/contract-form'
+import { InspectionForm } from '@/components/forms/inspection-form'
 import { toast } from 'sonner'
 import { format, parseISO, differenceInDays, differenceInMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Contract, Inspection, Boleto, Invoice, BoletoStatus } from '@/types/database'
+import type { Contract, ContractDocument, Inspection, Boleto, Invoice, BoletoStatus } from '@/types/database'
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -107,6 +111,11 @@ export default function ContratoDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [encerrarDialogOpen, setEncerrarDialogOpen] = useState(false)
   const [encerrarLoading, setEncerrarLoading] = useState(false)
+  const [novaVistoriaDialogOpen, setNovaVistoriaDialogOpen] = useState(false)
+  const [documentos, setDocumentos] = useState<ContractDocument[]>([])
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [docNome, setDocNome] = useState('')
+  const [docTipo, setDocTipo] = useState('Imposto de Renda')
   const [prorrogarDialogOpen, setProrrogarDialogOpen] = useState(false)
   const [prorrogarLoading, setProrrogarLoading] = useState(false)
   const [novaDataFim, setNovaDataFim] = useState('')
@@ -159,6 +168,14 @@ export default function ContratoDetailPage() {
       setInvoices((invoicesRes.data ?? []) as Invoice[])
     }
 
+    // Fetch documents
+    const { data: docsData } = await supabase
+      .from('contract_documents')
+      .select('*')
+      .eq('contrato_id', id)
+      .order('created_at', { ascending: false })
+    setDocumentos((docsData ?? []) as ContractDocument[])
+
     setLoading(false)
   }, [id])
 
@@ -194,6 +211,55 @@ export default function ContratoDetailPage() {
       toast.error(`Erro ao encerrar contrato: ${message}`)
     } finally {
       setEncerrarLoading(false)
+    }
+  }
+
+  async function handleUploadDoc(file: File) {
+    if (!contract) return
+    setUploadingDoc(true)
+    try {
+      const ext = file.name.split('.').pop() || 'pdf'
+      const fileName = `${contract.id}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('Contratos')
+        .upload(fileName, file)
+      if (uploadErr) throw uploadErr
+
+      const { data: urlData } = supabase.storage
+        .from('Contratos')
+        .getPublicUrl(fileName)
+
+      const { error: insertErr } = await supabase
+        .from('contract_documents')
+        .insert({
+          contrato_id: contract.id,
+          nome: docNome.trim() || file.name,
+          tipo: docTipo,
+          url: urlData.publicUrl,
+        })
+      if (insertErr) throw insertErr
+
+      toast.success('Documento enviado com sucesso')
+      setDocNome('')
+      fetchData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      toast.error(`Erro ao enviar documento: ${msg}`)
+    } finally {
+      setUploadingDoc(false)
+    }
+  }
+
+  async function handleDeleteDoc(docId: string) {
+    const { error } = await supabase
+      .from('contract_documents')
+      .delete()
+      .eq('id', docId)
+    if (error) {
+      toast.error('Erro ao excluir documento')
+    } else {
+      toast.success('Documento excluído')
+      fetchData()
     }
   }
 
@@ -451,6 +517,7 @@ export default function ContratoDetailPage() {
           <TabsTrigger value="vistorias">Vistorias</TabsTrigger>
           <TabsTrigger value="boletos">Boletos</TabsTrigger>
           <TabsTrigger value="notas">Notas Fiscais</TabsTrigger>
+          <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
         {/* Detalhes Tab */}
@@ -531,6 +598,37 @@ export default function ContratoDetailPage() {
 
         {/* Vistorias Tab */}
         <TabsContent value="vistorias">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Vistorias</h2>
+            {isGestor && (
+              <Dialog open={novaVistoriaDialogOpen} onOpenChange={setNovaVistoriaDialogOpen}>
+                <DialogTrigger
+                  render={
+                    <Button>
+                      <Plus className="h-4 w-4" />
+                      Nova Vistoria
+                    </Button>
+                  }
+                />
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Nova Vistoria</DialogTitle>
+                    <DialogDescription>
+                      Cadastrar vistoria para o contrato de {contract.imovel?.endereco ?? ''}, {contract.imovel?.numero ?? ''}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <InspectionForm
+                    contratoId={id}
+                    onSuccess={() => {
+                      setNovaVistoriaDialogOpen(false)
+                      fetchData()
+                    }}
+                    onCancel={() => setNovaVistoriaDialogOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
           {inspections.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -698,6 +796,132 @@ export default function ContratoDetailPage() {
               </Table>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Documentos Tab */}
+        <TabsContent value="documentos">
+          <div className="space-y-4">
+            {/* Upload area */}
+            {isGestor && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Enviar Documento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                    <div>
+                      <Label className="text-xs">Tipo do Documento</Label>
+                      <select
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={docTipo}
+                        onChange={(e) => setDocTipo(e.target.value)}
+                      >
+                        <option value="Imposto de Renda">Imposto de Renda</option>
+                        <option value="Imóvel em Fiança">Imóvel em Fiança</option>
+                        <option value="Comprovante de Renda">Comprovante de Renda</option>
+                        <option value="RG/CPF">RG/CPF</option>
+                        <option value="Comprovante de Residência">Comprovante de Residência</option>
+                        <option value="Certidão de Matrícula">Certidão de Matrícula</option>
+                        <option value="Outro">Outro</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nome/Descrição (opcional)</Label>
+                      <Input
+                        value={docNome}
+                        onChange={(e) => setDocNome(e.target.value)}
+                        placeholder="Ex: IR 2025 - Fiador"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Arquivo</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          className="flex-1"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleUploadDoc(file)
+                            e.target.value = ''
+                          }}
+                          disabled={uploadingDoc}
+                        />
+                        {uploadingDoc && <Loader2 className="h-4 w-4 animate-spin" />}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Documents list */}
+            {documentos.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Upload className="h-12 w-12 text-muted-foreground/40" />
+                  <h3 className="mt-4 text-lg font-medium">Nenhum documento anexado</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Envie documentos como Imposto de Renda, imóvel em fiança, etc.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {documentos.map((doc) => (
+                      <TableRow key={doc.id}>
+                        <TableCell>
+                          <Badge variant="secondary">{doc.tipo}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{doc.nome}</TableCell>
+                        <TableCell>{formatDate(doc.created_at)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => window.open(doc.url, '_blank')}
+                              title="Visualizar"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => window.open(doc.url, '_blank')}
+                              title="Baixar"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {isGestor && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleDeleteDoc(doc.id)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

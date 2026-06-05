@@ -23,16 +23,17 @@ interface ContractWithDetails extends Omit<Contract, 'imovel' | 'inquilino'> {
 }
 
 interface InspectionFormProps {
+  contratoId?: string
   onSuccess?: (inspection: Inspection) => void
   onCancel?: () => void
 }
 
-export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
+export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCancel }: InspectionFormProps) {
   const [loading, setLoading] = useState(false)
-  const [loadingData, setLoadingData] = useState(true)
+  const [loadingData, setLoadingData] = useState(!fixedContratoId)
   const [contracts, setContracts] = useState<ContractWithDetails[]>([])
 
-  const [contratoId, setContratoId] = useState('')
+  const [contratoId, setContratoId] = useState(fixedContratoId ?? '')
   const [tipo, setTipo] = useState<InspectionType>('entrada')
   const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
   const [observacoes, setObservacoes] = useState('')
@@ -42,6 +43,27 @@ export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    // When a fixed contract ID is provided, fetch only that contract for imovel_id lookup
+    if (fixedContratoId) {
+      async function fetchSingleContract() {
+        const { data, error } = await supabase
+          .from('contracts')
+          .select('*, imovel:properties(endereco, numero, bairro), inquilino:profiles!inquilino_id(nome)')
+          .eq('id', fixedContratoId)
+          .single()
+
+        if (error) {
+          toast.error('Erro ao carregar contrato')
+          console.error(error)
+        } else if (data) {
+          setContracts([data as ContractWithDetails])
+        }
+        setLoadingData(false)
+      }
+      fetchSingleContract()
+      return
+    }
+
     async function fetchContracts() {
       const { data, error } = await supabase
         .from('contracts')
@@ -58,7 +80,7 @@ export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
       setLoadingData(false)
     }
     fetchContracts()
-  }, [])
+  }, [fixedContratoId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -89,7 +111,7 @@ export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
       const { data: created, error } = await supabase
         .from('inspections')
         .insert(payload)
-        .select('*, imovel:properties(*, proprietario:profiles!proprietario_id(*))')
+        .select()
         .single()
 
       if (error) throw error
@@ -179,26 +201,28 @@ export function InspectionForm({ onSuccess, onCancel }: InspectionFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label>Contrato *</Label>
-        <Select value={contratoId} onValueChange={(v) => setContratoId(v ?? '')}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecione o contrato" />
-          </SelectTrigger>
-          <SelectContent>
-            {contracts.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.imovel?.endereco ?? '-'}, {c.imovel?.numero ?? ''} - {c.inquilino?.nome ?? 'Sem inquilino'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {contracts.length === 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Nenhum contrato ativo encontrado. Cadastre um contrato antes.
-          </p>
-        )}
-      </div>
+      {!fixedContratoId && (
+        <div>
+          <Label>Contrato *</Label>
+          <Select value={contratoId} onValueChange={(v) => setContratoId(v ?? '')}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione o contrato" />
+            </SelectTrigger>
+            <SelectContent>
+              {contracts.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.imovel?.endereco ?? '-'}, {c.imovel?.numero ?? ''} - {c.inquilino?.nome ?? 'Sem inquilino'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {contracts.length === 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nenhum contrato ativo encontrado. Cadastre um contrato antes.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>

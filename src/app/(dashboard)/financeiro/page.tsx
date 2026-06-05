@@ -43,6 +43,7 @@ import {
   Loader2,
   FileText,
   Upload,
+  CalendarClock,
 } from 'lucide-react'
 import {
   BarChart,
@@ -285,6 +286,17 @@ export default function FinanceiroPage() {
   const contasVencidas = useMemo(
     () => filteredForMonth.filter((e) => getExpenseStatus(e) === 'vencido').length,
     [filteredForMonth]
+  )
+
+  // Despesas vencendo hoje
+  const hoje = format(new Date(), 'yyyy-MM-dd')
+  const despesasHoje = useMemo(
+    () => expenses.filter((e) => e.data_vencimento === hoje && !e.pago),
+    [expenses, hoje]
+  )
+  const totalDespesasHoje = useMemo(
+    () => despesasHoje.reduce((sum, e) => sum + e.valor, 0),
+    [despesasHoje]
   )
 
   // ------ Charts data ------
@@ -580,6 +592,49 @@ export default function FinanceiroPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Despesas do Dia */}
+      {despesasHoje.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-orange-800">
+              <CalendarClock className="h-4 w-4" />
+              Despesas vencendo hoje — {format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {despesasHoje.map((e) => (
+                <div key={e.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={CATEGORY_CONFIG[e.categoria].className}>
+                      {CATEGORY_CONFIG[e.categoria].label}
+                    </Badge>
+                    <span className="text-gray-700">{e.descricao}</span>
+                    <span className="text-xs text-muted-foreground">({nomeImovel(e.imovel)})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-orange-800">{formatCurrency(e.valor)}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs px-2"
+                      onClick={() => togglePago(e)}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Pagar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t pt-2 flex justify-between text-sm font-semibold text-orange-800">
+                <span>Total do dia</span>
+                <span>{formatCurrency(totalDespesasHoje)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>

@@ -79,6 +79,8 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
   const [caucaoForma, setCaucaoForma] = useState<CaucaoFormaPagamento>(
     contract?.caucao_forma_pagamento ?? 'transferencia'
   )
+  const [fiadorNome, setFiadorNome] = useState(contract?.fiador_nome ?? '')
+  const [fiadorCpf, setFiadorCpf] = useState(contract?.fiador_cpf ?? '')
   const [observacoes, setObservacoes] = useState(contract?.observacoes ?? '')
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [uploadingFile, setUploadingFile] = useState(false)
@@ -207,9 +209,18 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
       if (tipoGarantia === 'caucao') {
         payload.caucao_valor = caucaoValor ? parseCurrencyInput(caucaoValor) : null
         payload.caucao_forma_pagamento = caucaoForma
+        payload.fiador_nome = null
+        payload.fiador_cpf = null
+      } else if (tipoGarantia === 'fiador') {
+        payload.fiador_nome = fiadorNome.trim() || null
+        payload.fiador_cpf = fiadorCpf.replace(/\D/g, '').trim() || null
+        payload.caucao_valor = null
+        payload.caucao_forma_pagamento = null
       } else {
         payload.caucao_valor = null
         payload.caucao_forma_pagamento = null
+        payload.fiador_nome = null
+        payload.fiador_cpf = null
       }
 
       if (contract) {
@@ -388,6 +399,36 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
                   )}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Campos de Fiador (só aparecem se garantia = fiador) */}
+      {tipoGarantia === 'fiador' && (
+        <div className="rounded-lg border p-3 bg-blue-50/50 dark:bg-blue-900/10 space-y-3">
+          <p className="text-xs font-medium text-blue-800 dark:text-blue-400">
+            Dados do Fiador
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="fiador_nome" className="text-xs">Nome do Fiador</Label>
+              <Input
+                id="fiador_nome"
+                value={fiadorNome}
+                onChange={(e) => setFiadorNome(e.target.value)}
+                placeholder="Nome completo do fiador"
+              />
+            </div>
+            <div>
+              <Label htmlFor="fiador_cpf" className="text-xs">CPF/CNPJ do Fiador</Label>
+              <Input
+                id="fiador_cpf"
+                value={fiadorCpf ? formatCpfCnpj(fiadorCpf) : ''}
+                onChange={(e) => setFiadorCpf(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                placeholder="000.000.000-00"
+                maxLength={18}
+              />
             </div>
           </div>
         </div>

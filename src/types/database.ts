@@ -47,12 +47,24 @@ export interface Contract {
   tipo_garantia: GuaranteeType
   caucao_valor?: number | null
   caucao_forma_pagamento?: CaucaoFormaPagamento | null
+  fiador_nome?: string | null
+  fiador_cpf?: string | null
   arquivo_url?: string
   ativo: boolean
   observacoes?: string
   created_at: string
   imovel?: Property
   inquilino?: Profile
+  documentos?: ContractDocument[]
+}
+
+export interface ContractDocument {
+  id: string
+  contrato_id: string
+  nome: string
+  tipo: string
+  url: string
+  created_at: string
 }
 
 export interface Inspection {
