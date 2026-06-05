@@ -145,13 +145,13 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
       const filePath = `${fileName}`
 
       const { error: uploadError } = await supabase.storage
-        .from('contratos')
+        .from('Contratos')
         .upload(filePath, arquivo)
 
       if (uploadError) throw uploadError
 
       const { data: urlData } = supabase.storage
-        .from('contratos')
+        .from('Contratos')
         .getPublicUrl(filePath)
 
       return urlData.publicUrl
@@ -217,7 +217,7 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
           .from('contracts')
           .update(payload)
           .eq('id', contract.id)
-          .select('*, imovel:properties(*), inquilino:profiles(*)')
+          .select()
           .single()
 
         if (error) throw error
@@ -227,7 +227,7 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
         const { data, error } = await supabase
           .from('contracts')
           .insert(payload)
-          .select('*, imovel:properties(*), inquilino:profiles(*)')
+          .select()
           .single()
 
         if (error) throw error
