@@ -139,6 +139,22 @@ export interface Invoice {
   imovel?: Property
 }
 
+export type ReconciliationStatusDB = 'aberta' | 'fechada'
+
+export interface Reconciliation {
+  id: string
+  mes: string
+  status: ReconciliationStatusDB
+  entries: unknown // JSON with ReconciliationEntry[]
+  summary: unknown | null
+  fechada_em: string | null
+  fechada_por: string | null
+  reaberta_em: string | null
+  reaberta_por: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Notification {
   id: string
   destinatario_id: string

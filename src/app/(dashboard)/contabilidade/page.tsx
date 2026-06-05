@@ -55,11 +55,15 @@ import {
   File,
   ArrowUpDown,
   MessageSquare,
+  Lock,
+  Unlock,
+  ShieldCheck,
 } from 'lucide-react'
 import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { OFXTransaction, ReconciliationEntry, ReconciliationStatus } from '@/lib/ofx-parser'
-import type { Boleto, Expense } from '@/types/database'
+import { useAuth } from '@/lib/auth'
+import type { Boleto, Expense, ReconciliationStatusDB } from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,6 +107,7 @@ const STATUS_CONFIG: Record<ReconciliationStatus, { label: string; icon: typeof 
 // ---------------------------------------------------------------------------
 
 export default function ContabilidadePage() {
+  const { profile } = useAuth()
   const monthOptions = useMemo(() => getMonthOptions(12), [])
   const currentMonth = format(new Date(), 'yyyy-MM')
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
@@ -112,6 +117,15 @@ export default function ContabilidadePage() {
   const [uploading, setUploading] = useState(false)
   const [entries, setEntries] = useState<ReconciliationEntry[]>([])
   const [ofxSummary, setOfxSummary] = useState<any>(null)
+
+  // Reconciliation persistence
+  const [reconciliationId, setReconciliationId] = useState<string | null>(null)
+  const [reconciliationStatus, setReconciliationStatus] = useState<ReconciliationStatusDB>('aberta')
+  const [loadingReconciliation, setLoadingReconciliation] = useState(true)
+  const [fechadaEm, setFechadaEm] = useState<string | null>(null)
+  const [closingMonth, setClosingMonth] = useState(false)
+
+  const isFechada = reconciliationStatus === 'fechada'
 
   // System data for matching
   const [boletos, setBoletos] = useState<Boleto[]>([])
@@ -160,6 +174,119 @@ export default function ContabilidadePage() {
   }, [fetchSystemData])
 
   // ---------------------------------------------------------------------------
+  // Load saved reconciliation when month changes
+  // ---------------------------------------------------------------------------
+
+  const loadReconciliation = useCallback(async () => {
+    setLoadingReconciliation(true)
+    const { data, error } = await supabase
+      .from('reconciliations')
+      .select('*')
+      .eq('mes', selectedMonth)
+      .single()
+
+    if (data && !error) {
+      setReconciliationId(data.id)
+      setReconciliationStatus(data.status as ReconciliationStatusDB)
+      setEntries((data.entries as ReconciliationEntry[]) || [])
+      setOfxSummary(data.summary || null)
+      setOfxUploaded(true)
+      setFechadaEm(data.fechada_em)
+    } else {
+      // No saved reconciliation for this month
+      setReconciliationId(null)
+      setReconciliationStatus('aberta')
+      setEntries([])
+      setOfxSummary(null)
+      setOfxUploaded(false)
+      setFechadaEm(null)
+    }
+    setLoadingReconciliation(false)
+  }, [selectedMonth])
+
+  useEffect(() => {
+    loadReconciliation()
+  }, [loadReconciliation])
+
+  // ---------------------------------------------------------------------------
+  // Save reconciliation to database
+  // ---------------------------------------------------------------------------
+
+  async function saveReconciliation(newEntries: ReconciliationEntry[], summary?: any) {
+    const payload = {
+      mes: selectedMonth,
+      entries: newEntries as unknown,
+      summary: summary || ofxSummary,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (reconciliationId) {
+      await supabase
+        .from('reconciliations')
+        .update(payload)
+        .eq('id', reconciliationId)
+    } else {
+      const { data } = await supabase
+        .from('reconciliations')
+        .insert({ ...payload, status: 'aberta' })
+        .select()
+        .single()
+      if (data) setReconciliationId(data.id)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Close / Reopen reconciliation
+  // ---------------------------------------------------------------------------
+
+  async function handleFecharConciliacao() {
+    if (!reconciliationId) return
+    setClosingMonth(true)
+    const now = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('reconciliations')
+      .update({
+        status: 'fechada',
+        fechada_em: now,
+        fechada_por: profile?.nome || profile?.email || null,
+        updated_at: now,
+      })
+      .eq('id', reconciliationId)
+
+    if (error) {
+      toast.error('Erro ao fechar conciliação')
+    } else {
+      setReconciliationStatus('fechada')
+      setFechadaEm(now)
+      toast.success('Conciliação fechada com sucesso!')
+    }
+    setClosingMonth(false)
+  }
+
+  async function handleReabrirConciliacao() {
+    if (!reconciliationId) return
+    const now = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('reconciliations')
+      .update({
+        status: 'aberta',
+        reaberta_em: now,
+        reaberta_por: profile?.nome || profile?.email || null,
+        updated_at: now,
+      })
+      .eq('id', reconciliationId)
+
+    if (error) {
+      toast.error('Erro ao reabrir conciliação')
+    } else {
+      setReconciliationStatus('aberta')
+      toast.success('Conciliação reaberta para edição')
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // OFX Upload & Matching
   // ---------------------------------------------------------------------------
 
@@ -193,6 +320,10 @@ export default function ContabilidadePage() {
       const reconciled = matchTransactions(transactions)
       setEntries(reconciled)
       setOfxUploaded(true)
+
+      // Save to database
+      await saveReconciliation(reconciled, result.summary)
+      setOfxSummary(result.summary)
 
       toast.success(`${transactions.length} lançamentos importados com sucesso`)
     } catch (error) {
@@ -264,27 +395,27 @@ export default function ContabilidadePage() {
     setJustifyNumeroNota(entry.numeroNota || '')
   }
 
-  function saveJustification() {
+  async function saveJustification() {
     if (justifyIndex === null) return
     if (!justifyText.trim()) {
       toast.error('Preencha a justificativa')
       return
     }
 
-    setEntries((prev) =>
-      prev.map((entry, i) =>
-        i === justifyIndex
-          ? {
-              ...entry,
-              status: 'justificado' as ReconciliationStatus,
-              justificativa: justifyText.trim(),
-              possuiNota: justifyHasNota,
-              numeroNota: justifyHasNota ? justifyNumeroNota : null,
-            }
-          : entry
-      )
+    const newEntries = entries.map((entry, i) =>
+      i === justifyIndex
+        ? {
+            ...entry,
+            status: 'justificado' as ReconciliationStatus,
+            justificativa: justifyText.trim(),
+            possuiNota: justifyHasNota,
+            numeroNota: justifyHasNota ? justifyNumeroNota : null,
+          }
+        : entry
     )
 
+    setEntries(newEntries)
+    await saveReconciliation(newEntries)
     setJustifyIndex(null)
     toast.success('Justificativa salva')
   }
@@ -482,6 +613,30 @@ export default function ContabilidadePage() {
         </Select>
       </div>
 
+      {/* Banner de conciliação fechada */}
+      {isFechada && (
+        <div className="flex items-center justify-between p-4 rounded-lg border border-emerald-200 bg-emerald-50">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <div>
+              <p className="font-semibold text-emerald-800">Conciliação fechada</p>
+              <p className="text-xs text-emerald-600">
+                Fechada em {fechadaEm ? format(new Date(fechadaEm), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '—'} — Os registros estão travados para edição.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+            onClick={handleReabrirConciliacao}
+          >
+            <Unlock className="h-4 w-4" />
+            Reabrir para edição
+          </Button>
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="conciliacao">
         <TabsList className="w-full sm:w-auto">
@@ -610,6 +765,7 @@ export default function ContabilidadePage() {
 
               {/* Re-upload + Download buttons */}
               <div className="flex flex-wrap items-center gap-3">
+                {!isFechada && (
                 <div>
                   <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef2.current?.click()}>
                     <Upload className="h-4 w-4" />
@@ -624,10 +780,23 @@ export default function ContabilidadePage() {
                     disabled={uploading}
                   />
                 </div>
+                )}
                 <Button variant="default" size="sm" onClick={handleDownloadConciliacao}>
                   <Download className="h-4 w-4" />
                   Baixar Conciliação (CSV)
                 </Button>
+                {!isFechada && stats.naoIdentificados === 0 && entries.length > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handleFecharConciliacao}
+                    disabled={closingMonth}
+                  >
+                    {closingMonth ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                    Fechar Conciliação
+                  </Button>
+                )}
                 {ofxSummary && (
                   <p className="text-xs text-muted-foreground">
                     {ofxSummary.totalTransactions} lançamentos · Período: {ofxSummary.period}
@@ -697,7 +866,7 @@ export default function ContabilidadePage() {
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              {entry.status !== 'conciliado' && (
+                              {entry.status !== 'conciliado' && !isFechada && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -743,7 +912,7 @@ export default function ContabilidadePage() {
                             <Icon className="h-3 w-3 mr-1" />
                             {st.label}
                           </Badge>
-                          {entry.status !== 'conciliado' && (
+                          {entry.status !== 'conciliado' && !isFechada && (
                             <Button variant="ghost" size="sm" onClick={() => openJustify(realIndex)}>
                               <MessageSquare className="h-4 w-4 mr-1" />
                               Justificar
