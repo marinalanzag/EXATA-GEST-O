@@ -52,26 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession()
-
-        if (currentSession?.user) {
-          setSession(currentSession)
-          setUser(currentSession.user)
-          const prof = await fetchProfile(currentSession.user.id)
-          setProfile(prof)
-        }
-      } catch (err) {
-        console.error('Erro ao inicializar autenticação:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    initAuth()
+    // Use onAuthStateChange as the single source of truth.
+    // getSession is only needed as a fallback for the initial load.
+    let initialized = false
 
     const {
       data: { subscription },
@@ -86,13 +69,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
       }
 
-      if (event === 'SIGNED_OUT') {
-        setProfile(null)
+      if (!initialized) {
+        initialized = true
+        setLoading(false)
       }
     })
 
+    // Fallback: if onAuthStateChange doesn't fire within 3s, resolve loading
+    const timeout = setTimeout(() => {
+      if (!initialized) {
+        initialized = true
+        setLoading(false)
+      }
+    }, 3000)
+
     return () => {
       subscription.unsubscribe()
+      clearTimeout(timeout)
     }
   }, [fetchProfile])
 
