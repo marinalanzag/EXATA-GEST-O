@@ -237,8 +237,8 @@ export default function DashboardPage() {
   const formatDate = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
 
   const statusBadge = (status: string) => {
-    const map: Record<string, string> = { disponivel: 'bg-green-100 text-green-800', locado: 'bg-blue-100 text-blue-800', manutencao: 'bg-yellow-100 text-yellow-800' }
-    const labels: Record<string, string> = { disponivel: 'Disponível', locado: 'Locado', manutencao: 'Manutenção' }
+    const map: Record<string, string> = { disponivel: 'bg-green-100 text-green-800', locado: 'bg-blue-100 text-blue-800', manutencao: 'bg-yellow-100 text-yellow-800', aplicativo: 'bg-purple-100 text-purple-800' }
+    const labels: Record<string, string> = { disponivel: 'Disponível', locado: 'Locado', manutencao: 'Manutenção', aplicativo: 'Aplicativo' }
     return <Badge className={map[status] || ''}>{labels[status] || status}</Badge>
   }
 

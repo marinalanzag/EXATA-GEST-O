@@ -41,6 +41,7 @@ const STATUS_CONFIG: Record<PropertyStatus, { label: string; className: string }
   disponivel: { label: 'Disponível', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
   locado: { label: 'Locado', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
   manutencao: { label: 'Manutenção', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  aplicativo: { label: 'Aplicativo', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
 }
 
 interface PropertyWithRent extends Property {
@@ -165,6 +166,7 @@ export default function ImoveisPage() {
                 <SelectItem value="disponivel">Disponível</SelectItem>
                 <SelectItem value="locado">Locado</SelectItem>
                 <SelectItem value="manutencao">Manutenção</SelectItem>
+                <SelectItem value="aplicativo">Aplicativo</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -27,7 +27,7 @@ interface PropertyFormProps {
   onCancel?: () => void
 }
 
-const PROPERTY_TYPES = ['Residencial', 'Comercial', 'Terreno', 'Galpão']
+const PROPERTY_TYPES = ['Residencial', 'Comercial', 'Terreno', 'Galpão', 'Aplicativo']
 
 export function PropertyForm({ property, onSuccess, onCancel }: PropertyFormProps) {
   const { profile } = useAuth()
@@ -204,6 +204,7 @@ export function PropertyForm({ property, onSuccess, onCancel }: PropertyFormProp
               <SelectItem value="disponivel">Disponível</SelectItem>
               <SelectItem value="locado">Locado</SelectItem>
               <SelectItem value="manutencao">Manutenção</SelectItem>
+              <SelectItem value="aplicativo">Aplicativo</SelectItem>
             </SelectContent>
           </Select>
         </div>

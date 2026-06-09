@@ -1,5 +1,5 @@
 export type UserRole = 'gestor' | 'proprietario' | 'inquilino'
-export type PropertyStatus = 'disponivel' | 'locado' | 'manutencao'
+export type PropertyStatus = 'disponivel' | 'locado' | 'manutencao' | 'aplicativo'
 export type GuaranteeType = 'caucao' | 'fiador' | 'seguro_fianca'
 export type BoletoStatus = 'pendente' | 'pago' | 'vencido' | 'cancelado'
 export type InspectionType = 'entrada' | 'saida'
