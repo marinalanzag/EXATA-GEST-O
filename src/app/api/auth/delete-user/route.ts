@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireGestor } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireGestor(request)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { userId } = await request.json()
+
+    if (userId === auth.userId) {
+      return NextResponse.json({ error: 'Você não pode excluir seu próprio usuário' }, { status: 400 })
+    }
 
     if (!userId) {
       return NextResponse.json({ error: 'userId é obrigatório' }, { status: 400 })

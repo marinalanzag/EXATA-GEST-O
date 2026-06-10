@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import JSZip from 'jszip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -300,8 +299,10 @@ export default function ContabilidadePage() {
       const formData = new FormData()
       formData.append('file', file)
 
+      const { authHeaders } = await import('@/lib/supabase')
       const res = await fetch('/api/contabilidade/parse-ofx', {
         method: 'POST',
+        headers: await authHeaders(),
         body: formData,
       })
 
@@ -508,7 +509,10 @@ export default function ContabilidadePage() {
     setDownloading(true)
 
     try {
-      const res = await fetch(`/api/contabilidade/download-notas?mes=${selectedMonth}&tipo=${tipo}`)
+      const { authHeaders } = await import('@/lib/supabase')
+      const res = await fetch(`/api/contabilidade/download-notas?mes=${selectedMonth}&tipo=${tipo}`, {
+        headers: await authHeaders(),
+      })
       const result = await res.json()
 
       if (!res.ok) {
@@ -517,22 +521,19 @@ export default function ContabilidadePage() {
         return
       }
 
-      // Download each file and add to ZIP
+      // Download files in parallel and add to ZIP
+      const { default: JSZip } = await import('jszip')
       const zip = new JSZip()
-      let downloadedCount = 0
 
-      for (const file of result.files) {
-        try {
+      const results = await Promise.allSettled(
+        (result.files as { name: string; url: string }[]).map(async (file) => {
           const fileRes = await fetch(file.url)
-          if (fileRes.ok) {
-            const blob = await fileRes.blob()
-            zip.file(file.name, blob)
-            downloadedCount++
-          }
-        } catch {
-          console.warn(`Falha ao baixar: ${file.name}`)
-        }
-      }
+          if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`)
+          const blob = await fileRes.blob()
+          zip.file(file.name, blob)
+        })
+      )
+      const downloadedCount = results.filter((r) => r.status === 'fulfilled').length
 
       if (downloadedCount === 0) {
         toast.error('Nenhum arquivo foi baixado')

@@ -135,16 +135,22 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
             .from('inspections')
             .getPublicUrl(pdfPath)
 
-          await supabase
+          const { error: pdfLinkError } = await supabase
             .from('inspections')
             .update({ pdf_url: pdfUrl.publicUrl })
             .eq('id', inspectionId)
+
+          if (pdfLinkError) {
+            console.error('Erro ao vincular PDF à vistoria:', pdfLinkError)
+            toast.error('PDF enviado, mas não foi vinculado à vistoria. Tente editar e reenviar.')
+          }
         }
       }
 
       // 3. Upload photos if provided
       if (photoFiles && photoFiles.length > 0) {
         let photoCount = 0
+        const failedPhotos: string[] = []
         for (let i = 0; i < photoFiles.length; i++) {
           const file = photoFiles[i]
           const fileExt = file.name.split('.').pop()
@@ -157,6 +163,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
 
           if (uploadError) {
             console.error(`Erro no upload de ${file.name}:`, uploadError)
+            failedPhotos.push(file.name)
             continue
           }
 
@@ -173,11 +180,19 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
               descricao: null,
             })
 
-          if (!insertError) photoCount++
+          if (insertError) {
+            console.error(`Erro ao registrar foto ${file.name}:`, insertError)
+            failedPhotos.push(file.name)
+          } else {
+            photoCount++
+          }
         }
 
         if (photoCount > 0) {
           toast.success(`${photoCount} foto(s) adicionada(s)`)
+        }
+        if (failedPhotos.length > 0) {
+          toast.error(`${failedPhotos.length} foto(s) falharam: ${failedPhotos.slice(0, 3).join(', ')}${failedPhotos.length > 3 ? '…' : ''}`)
         }
       }
 

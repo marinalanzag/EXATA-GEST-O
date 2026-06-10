@@ -182,13 +182,20 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
       const cpfDigits = editCpfCnpj.replace(/\D/g, '').trim()
       const residenteTrim = editResidente.trim()
 
-      await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           cpf_cnpj: cpfDigits || null,
           residente: residenteTrim || null,
         })
         .eq('id', inquilinoId)
+
+      if (profileError) {
+        console.error('Erro ao atualizar dados do inquilino:', profileError)
+        toast.error(`Erro ao salvar dados do inquilino: ${profileError.message}`)
+        setLoading(false)
+        return
+      }
 
       const arquivoUrl = await uploadContractPdf()
       const valor = parseCurrencyInput(valorAluguel)
@@ -243,12 +250,17 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
 
         if (error) throw error
 
-        await supabase
+        const { error: propError } = await supabase
           .from('properties')
           .update({ status: 'locado' })
           .eq('id', imovelId)
 
-        toast.success('Contrato cadastrado com sucesso')
+        if (propError) {
+          console.error('Erro ao atualizar status do imóvel:', propError)
+          toast.warning('Contrato criado, mas não foi possível marcar o imóvel como locado. Atualize manualmente.')
+        } else {
+          toast.success('Contrato cadastrado com sucesso')
+        }
         onSuccess?.(data as Contract)
       }
     } catch (error: unknown) {

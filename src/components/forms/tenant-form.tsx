@@ -71,9 +71,10 @@ export function TenantFormDialog({ onSuccess }: TenantFormProps) {
     setLoading(true)
 
     try {
+      const { authHeaders } = await import('@/lib/supabase')
       const res = await fetch('/api/auth/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({
           nome: nome.trim(),
           email: email.trim(),

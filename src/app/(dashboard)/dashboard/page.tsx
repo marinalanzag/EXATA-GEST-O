@@ -108,10 +108,10 @@ export default function DashboardPage() {
         { data: expenses },
         { data: boletos },
       ] = await Promise.all([
-        supabase.from('properties').select('*'),
-        supabase.from('contracts').select('*, imovel:properties(*), inquilino:profiles(*)'),
-        supabase.from('expenses').select('*'),
-        supabase.from('boletos').select('*, contrato:contracts(*, imovel:properties(*))'),
+        supabase.from('properties').select('id, complemento, endereco, numero, bairro, status'),
+        supabase.from('contracts').select('id, ativo, imovel_id, valor_aluguel, data_inicio, data_fim, inquilino:profiles!inquilino_id(nome)'),
+        supabase.from('expenses').select('id, valor, data_vencimento, pago'),
+        supabase.from('boletos').select('id, valor, status, referencia_mes, data_vencimento'),
       ])
 
       setRawData({

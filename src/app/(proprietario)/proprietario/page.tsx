@@ -58,14 +58,22 @@ export default function ProprietarioPage() {
       let boletos: Boleto[] = []
       let invoices: Invoice[] = []
 
-      if (contractIds.length > 0) {
-        const [{ data: b }, { data: inv }] = await Promise.all([
-          supabase.from('boletos').select('*').in('contrato_id', contractIds).order('data_vencimento', { ascending: false }),
-          supabase.from('invoices').select('*').in('contrato_id', contractIds).order('data_emissao', { ascending: false }),
-        ])
-        boletos = b || []
-        invoices = inv || []
-      }
+      // Invoices podem estar ligadas ao contrato (aluguel) ou direto ao imóvel (Airbnb)
+      const invoiceFilter = [
+        contractIds.length > 0 ? `contrato_id.in.(${contractIds.join(',')})` : null,
+        propIds.length > 0 ? `imovel_id.in.(${propIds.join(',')})` : null,
+      ].filter(Boolean).join(',')
+
+      const [{ data: b }, { data: inv }] = await Promise.all([
+        contractIds.length > 0
+          ? supabase.from('boletos').select('*').in('contrato_id', contractIds).order('data_vencimento', { ascending: false })
+          : Promise.resolve({ data: [] as Boleto[] }),
+        invoiceFilter
+          ? supabase.from('invoices').select('*').or(invoiceFilter).order('data_emissao', { ascending: false })
+          : Promise.resolve({ data: [] as Invoice[] }),
+      ])
+      boletos = (b || []) as Boleto[]
+      invoices = (inv || []) as Invoice[]
 
       const enriched: PropertyWithDetails[] = props.map(p => {
         const propContracts = (contracts || []).filter(c => c.imovel_id === p.id)
@@ -75,7 +83,9 @@ export default function ProprietarioPage() {
           contracts: propContracts,
           expenses: (expenses || []).filter(e => e.imovel_id === p.id),
           boletos: boletos.filter(b => propContractIds.includes(b.contrato_id)),
-          invoices: invoices.filter(inv => propContractIds.includes(inv.contrato_id)),
+          invoices: invoices.filter(inv =>
+            (inv.contrato_id && propContractIds.includes(inv.contrato_id)) || inv.imovel_id === p.id
+          ),
         }
       })
 
@@ -96,8 +106,9 @@ export default function ProprietarioPage() {
       disponivel: 'bg-green-100 text-green-800',
       locado: 'bg-blue-100 text-blue-800',
       manutencao: 'bg-yellow-100 text-yellow-800',
+      aplicativo: 'bg-purple-100 text-purple-800',
     }
-    const labels: Record<string, string> = { disponivel: 'Disponível', locado: 'Locado', manutencao: 'Manutenção' }
+    const labels: Record<string, string> = { disponivel: 'Disponível', locado: 'Locado', manutencao: 'Manutenção', aplicativo: 'Aplicativo' }
     return <Badge className={map[s] || ''}>{labels[s] || s}</Badge>
   }
 

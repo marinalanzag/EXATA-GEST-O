@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireGestor } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireGestor(request)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { nome, email, telefone, senha, role, cpf_cnpj, residente } = await request.json()
 
     if (!nome || !email || !senha) {

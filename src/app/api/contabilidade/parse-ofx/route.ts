@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseOFX } from '@/lib/ofx-parser'
+import { requireGestor } from '@/lib/api-auth'
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireGestor(req)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const formData = await req.formData()
     const file = formData.get('file') as File | null
 
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'Arquivo muito grande (máximo 5MB)' }, { status: 400 })
     }
 
     const fileName = file.name.toLowerCase()

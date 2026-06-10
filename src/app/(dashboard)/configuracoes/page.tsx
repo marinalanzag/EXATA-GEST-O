@@ -129,9 +129,10 @@ export default function ConfiguracoesPage() {
   async function handleDeleteUser(userId: string) {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return
     try {
+      const { authHeaders } = await import('@/lib/supabase')
       const res = await fetch('/api/auth/delete-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId }),
       })
       const data = await res.json()
@@ -199,6 +200,19 @@ export default function ConfiguracoesPage() {
     const matchRole = roleFilter === 'todos' || user.role === roleFilter
     return matchSearch && matchRole
   })
+
+  // Página restrita a gestores (proprietário tem acesso somente leitura ao restante)
+  if (profile && profile.role !== 'gestor') {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <Settings className="h-12 w-12 text-muted-foreground/40" />
+        <h3 className="mt-4 text-lg font-medium">Acesso restrito</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          As configurações do sistema são gerenciadas pela gestão da EXATA.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { sendEmail, boletoEmailHtml, createNotification } from '@/lib/notifications'
+import { requireGestor } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireGestor(request)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { boletoId } = await request.json()
     const supabase = createServerClient()
 

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -135,14 +134,8 @@ export default function LoginPage() {
             )}
           </Button>
         </form>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Área do gestor?{' '}
-          <Link
-            href="/registro"
-            className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
-            Cadastrar usuário
-          </Link>
+        <div className="mt-6 text-center text-xs text-muted-foreground">
+          Não tem acesso? Fale com a administração da EXATA.
         </div>
       </CardContent>
     </Card>

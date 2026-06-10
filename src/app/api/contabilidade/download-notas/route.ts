@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireGestor } from '@/lib/api-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,11 @@ const supabase = createClient(
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireGestor(req)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { searchParams } = new URL(req.url)
     const mes = searchParams.get('mes')
     const tipo = searchParams.get('tipo') || 'todas'
@@ -51,7 +57,8 @@ export async function GET(req: NextRequest) {
     const { data: expenses } = await supabase
       .from('expenses')
       .select('*, imovel:properties(endereco, numero)')
-      .eq('data_vencimento', `${mes}-01`)
+      .gte('data_vencimento', `${mes}-01`)
+      .lte('data_vencimento', `${mes}-31`)
       .not('numero_nf', 'is', null)
       .neq('numero_nf', 'SEM NOTA')
 

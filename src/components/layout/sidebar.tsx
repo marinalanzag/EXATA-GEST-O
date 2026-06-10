@@ -47,11 +47,15 @@ const navItemsByRole: Record<UserRole, NavItem[]> = {
     { label: 'Contabilidade', href: '/contabilidade', icon: BookOpen },
     { label: 'Configurações', href: '/configuracoes', icon: Settings },
   ],
+  // Proprietário vê as mesmas páginas do gestor (somente leitura), exceto Configurações
   proprietario: [
-    { label: 'Dashboard', href: '/proprietario', icon: Home },
-    { label: 'Meus Imóveis', href: '/proprietario/imoveis', icon: Building2 },
-    { label: 'Contratos', href: '/proprietario/contratos', icon: FileText },
-    { label: 'Financeiro', href: '/proprietario/financeiro', icon: DollarSign },
+    { label: 'Dashboard', href: '/dashboard', icon: Home },
+    { label: 'Imóveis', href: '/imoveis', icon: Building2 },
+    { label: 'Contratos', href: '/contratos', icon: FileText },
+    { label: 'Financeiro', href: '/financeiro', icon: DollarSign },
+    { label: 'Boletos', href: '/boletos', icon: Receipt },
+    { label: 'Notas Fiscais', href: '/notas-fiscais', icon: BarChart3 },
+    { label: 'Contabilidade', href: '/contabilidade', icon: BookOpen },
   ],
   inquilino: [
     { label: 'Dashboard', href: '/inquilino', icon: Home },
@@ -64,7 +68,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { profile, signOut } = useAuth()
 
-  const role = profile?.role ?? 'gestor'
+  // Fallback para o menor privilégio se o perfil ainda não carregou
+  const role = profile?.role ?? 'inquilino'
   const navItems = navItemsByRole[role]
 
   const isActive = (href: string) => {
