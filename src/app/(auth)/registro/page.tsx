@@ -66,7 +66,7 @@ export default function RegistroPage() {
       setPassword('')
       setRole('inquilino')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao cadastrar: ${message}`)
     } finally {
       setLoading(false)

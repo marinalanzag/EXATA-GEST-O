@@ -158,7 +158,7 @@ export default function PropertyDetailPage() {
       toast.success('Imovel excluido com sucesso')
       router.push('/imoveis')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao excluir: ${message}`)
     } finally {
       setDeleting(false)

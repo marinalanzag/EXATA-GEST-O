@@ -94,7 +94,7 @@ export function TenantFormDialog({ onSuccess }: TenantFormProps) {
       resetForm()
       if (result.user) onSuccess?.(result.user as Profile)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao cadastrar inquilino: ${message}`)
     } finally {
       setLoading(false)

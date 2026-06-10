@@ -186,7 +186,7 @@ export default function VistoriaDetailPage() {
       toast.success('Observacoes salvas')
       setObsChanged(false)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao salvar: ${message}`)
     } finally {
       setSavingObs(false)
@@ -251,7 +251,7 @@ export default function VistoriaDetailPage() {
       setUploadFiles(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro no upload: ${message}`)
     } finally {
       setUploading(false)
@@ -284,7 +284,7 @@ export default function VistoriaDetailPage() {
       setPhotos((prev) => prev.filter((p) => p.id !== deletePhotoId))
       setDeletePhotoId(null)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao remover foto: ${message}`)
     } finally {
       setDeleting(false)
@@ -347,7 +347,7 @@ export default function VistoriaDetailPage() {
       setInspection({ ...inspection, pdf_url: pdfUrl.publicUrl })
       toast.success('PDF enviado com sucesso')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao enviar PDF: ${message}`)
     } finally {
       setUploadingPdf(false)

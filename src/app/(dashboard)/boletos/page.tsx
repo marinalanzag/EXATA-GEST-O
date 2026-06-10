@@ -300,7 +300,7 @@ export default function BoletosPage() {
       toast.success('PDF anexado com sucesso')
       fetchBoletos()
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Erro desconhecido'
+      const msg = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao enviar PDF: ${msg}`)
     } finally {
       setEditUploading(false)

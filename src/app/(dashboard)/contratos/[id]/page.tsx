@@ -207,7 +207,7 @@ export default function ContratoDetailPage() {
       setEncerrarDialogOpen(false)
       fetchData()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao encerrar contrato: ${message}`)
     } finally {
       setEncerrarLoading(false)
@@ -293,7 +293,7 @@ export default function ContratoDetailPage() {
       setNovoValor('')
       fetchData()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao prorrogar contrato: ${message}`)
     } finally {
       setProrrogarLoading(false)

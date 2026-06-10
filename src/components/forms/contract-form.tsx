@@ -158,7 +158,7 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
 
       return urlData.publicUrl
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao fazer upload: ${message}`)
       return null
     } finally {
@@ -264,7 +264,7 @@ export function ContractForm({ contract, onSuccess, onCancel }: ContractFormProp
         onSuccess?.(data as Contract)
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao salvar contrato: ${message}`)
     } finally {
       setLoading(false)

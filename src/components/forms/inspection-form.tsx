@@ -199,7 +199,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
       toast.success('Vistoria cadastrada com sucesso')
       onSuccess?.(created as Inspection)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao salvar vistoria: ${message}`)
     } finally {
       setLoading(false)

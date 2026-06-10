@@ -88,7 +88,7 @@ export function PropertyForm({ property, onSuccess, onCancel }: PropertyFormProp
         onSuccess?.(data as Property)
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido'
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro ao salvar imóvel: ${message}`)
     } finally {
       setLoading(false)
