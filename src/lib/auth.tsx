@@ -58,21 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // IMPORTANTE: nunca usar await em queries do Supabase DENTRO deste
+      // callback — ele segura o lock de auth e trava TODAS as queries do app
+      // (deadlock conhecido do supabase-js). Por isso o setTimeout(0).
       setSession(newSession)
       setUser(newSession?.user ?? null)
 
-      if (newSession?.user) {
-        const prof = await fetchProfile(newSession.user.id)
-        setProfile(prof)
-      } else {
-        setProfile(null)
-      }
+      const userId = newSession?.user?.id
 
-      if (!initialized) {
-        initialized = true
-        setLoading(false)
-      }
+      setTimeout(async () => {
+        if (userId) {
+          const prof = await fetchProfile(userId)
+          setProfile(prof)
+        } else {
+          setProfile(null)
+        }
+
+        if (!initialized) {
+          initialized = true
+          setLoading(false)
+        }
+      }, 0)
     })
 
     // Fallback: if onAuthStateChange doesn't fire within 3s, resolve loading
