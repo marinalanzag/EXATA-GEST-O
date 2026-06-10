@@ -552,7 +552,6 @@ export default function ContratoDetailPage() {
                       : '-'
                   }
                 />
-                <InfoField label="Proprietário" value={contract.imovel?.proprietario?.nome ?? '-'} />
                 <InfoField label="Inquilino" value={contract.inquilino?.nome ?? '-'} />
                 {contract.inquilino?.cpf_cnpj && (
                   <InfoField label="CPF/CNPJ" value={formatCpfCnpj(contract.inquilino.cpf_cnpj)} />
