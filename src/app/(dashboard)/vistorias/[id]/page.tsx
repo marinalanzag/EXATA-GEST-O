@@ -110,11 +110,90 @@ export default function VistoriaDetailPage() {
   const [deletePhotoId, setDeletePhotoId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Edit/delete vistoria state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editTipo, setEditTipo] = useState<'entrada' | 'saida'>('entrada')
+  const [editData, setEditData] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deleteVistoriaOpen, setDeleteVistoriaOpen] = useState(false)
+  const [deletingVistoria, setDeletingVistoria] = useState(false)
+
   // Comparison state
   const [compareOpen, setCompareOpen] = useState(false)
   const [otherInspection, setOtherInspection] = useState<Inspection | null>(null)
   const [otherPhotos, setOtherPhotos] = useState<InspectionPhoto[]>([])
   const [hasCompanion, setHasCompanion] = useState(false)
+
+  function openEditVistoria() {
+    if (!inspection) return
+    setEditTipo(inspection.tipo as 'entrada' | 'saida')
+    setEditData(inspection.data)
+    setEditOpen(true)
+  }
+
+  async function handleSaveEditVistoria() {
+    if (!inspection || !editData) {
+      toast.error('Informe a data da vistoria')
+      return
+    }
+    setSavingEdit(true)
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ tipo: editTipo, data: editData })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+      toast.success('Vistoria atualizada com sucesso')
+      setEditOpen(false)
+      fetchInspection()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
+      toast.error(`Erro ao atualizar vistoria: ${message}`)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleDeleteVistoria() {
+    if (!inspection) return
+    setDeletingVistoria(true)
+    try {
+      // 1. Remover arquivos do storage (fotos + laudo PDF ficam na pasta do id)
+      const { data: storageFiles } = await supabase.storage
+        .from('vistorias')
+        .list(inspection.id)
+      if (storageFiles && storageFiles.length > 0) {
+        await supabase.storage
+          .from('vistorias')
+          .remove(storageFiles.map((f) => `${inspection.id}/${f.name}`))
+      }
+
+      // 2. Remover registros de fotos
+      const { error: photosError } = await supabase
+        .from('inspection_photos')
+        .delete()
+        .eq('vistoria_id', inspection.id)
+      if (photosError) throw photosError
+
+      // 3. Remover itens do checklist (tabela pode não existir ainda — ignora erro)
+      await supabase.from('inspection_items').delete().eq('vistoria_id', inspection.id)
+
+      // 4. Remover a vistoria
+      const { error: inspError } = await supabase
+        .from('inspections')
+        .delete()
+        .eq('id', inspection.id)
+      if (inspError) throw inspError
+
+      toast.success('Vistoria excluída com sucesso')
+      router.push('/vistorias')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
+      toast.error(`Erro ao excluir vistoria: ${message}`)
+      setDeletingVistoria(false)
+    }
+  }
 
   const fetchInspection = useCallback(async () => {
     const { data, error } = await supabase
@@ -469,12 +548,90 @@ export default function VistoriaDetailPage() {
             <Printer className="h-4 w-4" />
             Gerar Laudo
           </Button>
+          <Button variant="outline" onClick={openEditVistoria}>
+            <FileText className="h-4 w-4" />
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => setDeleteVistoriaOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir
+          </Button>
           <Button onClick={() => setUploadOpen(true)}>
             <Plus className="h-4 w-4" />
             Adicionar Fotos
           </Button>
         </div>
       </div>
+
+      {/* Editar Vistoria Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Vistoria</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Tipo</Label>
+              <Select value={editTipo} onValueChange={(v) => v && setEditTipo(v as 'entrada' | 'saida')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entrada">Entrada</SelectItem>
+                  <SelectItem value="saida">Saída</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-data">Data da vistoria</Label>
+              <Input
+                id="edit-data"
+                type="date"
+                value={editData}
+                onChange={(e) => setEditData(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEditVistoria} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excluir Vistoria Dialog */}
+      <Dialog open={deleteVistoriaOpen} onOpenChange={(open) => !deletingVistoria && setDeleteVistoriaOpen(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir Vistoria</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir esta vistoria de{' '}
+            <strong>{inspection.tipo === 'entrada' ? 'entrada' : 'saída'}</strong> de{' '}
+            <strong>{formatDate(inspection.data)}</strong>?
+            Todas as fotos, o checklist e o PDF anexado serão removidos permanentemente.
+            Essa ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteVistoriaOpen(false)} disabled={deletingVistoria}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteVistoria} disabled={deletingVistoria}>
+              {deletingVistoria && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir Definitivamente
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* PDF Section */}
       <Card>
