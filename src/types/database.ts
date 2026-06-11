@@ -3,7 +3,7 @@ export type PropertyStatus = 'disponivel' | 'locado' | 'manutencao' | 'aplicativ
 export type GuaranteeType = 'caucao' | 'fiador' | 'seguro_fianca'
 export type BoletoStatus = 'pendente' | 'pago' | 'vencido' | 'cancelado'
 export type InspectionType = 'entrada' | 'saida'
-export type ExpenseCategory = 'iptu' | 'condominio' | 'manutencao' | 'seguro' | 'outros'
+export type ExpenseCategory = 'iptu' | 'condominio' | 'manutencao' | 'seguro' | 'impostos' | 'folha_pagamento' | 'outros'
 export type ExpensePayer = 'empresa' | 'inquilino'
 
 export interface Profile {

@@ -125,6 +125,16 @@ const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; className: strin
     className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
     color: '#10b981',
   },
+  impostos: {
+    label: 'Impostos',
+    className: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400',
+    color: '#f43f5e',
+  },
+  folha_pagamento: {
+    label: 'Folha de Pagamento',
+    className: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
+    color: '#06b6d4',
+  },
   outros: {
     label: 'Outros',
     className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',

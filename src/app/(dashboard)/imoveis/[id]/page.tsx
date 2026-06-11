@@ -73,6 +73,8 @@ const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
   condominio: 'Condomínio',
   manutencao: 'Manutenção',
   seguro: 'Seguro',
+  impostos: 'Impostos',
+  folha_pagamento: 'Folha de Pagamento',
   outros: 'Outros',
 }
 
