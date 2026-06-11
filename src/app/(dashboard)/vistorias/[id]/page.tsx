@@ -34,11 +34,17 @@ import {
   X,
   FileText,
   Download,
+  Printer,
+  ChevronDown,
+  ChevronRight,
+  ImageUp,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
-import type { Inspection, InspectionPhoto } from '@/types/database'
+import { compressImage } from '@/lib/compress-image'
+import { VistoriaChecklist } from '@/components/vistoria-checklist'
+import type { Inspection, InspectionPhoto, InspectionItem } from '@/types/database'
 
 const formatDate = (dateStr: string) => {
   try {
@@ -61,17 +67,12 @@ const TIPO_CONFIG: Record<string, { label: string; className: string }> = {
 
 const COMODOS = [
   'Sala',
-  'Quarto 1',
-  'Quarto 2',
-  'Quarto 3',
   'Cozinha',
-  'Banheiro 1',
-  'Banheiro 2',
-  'Area de Servico',
-  'Garagem',
-  'Varanda',
-  'Fachada',
-  'Outros',
+  'Quarto',
+  'Banho',
+  'Área de Serviço',
+  'Área Externa',
+  'Geral',
 ]
 
 export default function VistoriaDetailPage() {
@@ -90,11 +91,17 @@ export default function VistoriaDetailPage() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadComodo, setUploadComodo] = useState('Sala')
   const [uploadDescricao, setUploadDescricao] = useState('')
-  const [uploadFiles, setUploadFiles] = useState<FileList | null>(null)
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadingPdf, setUploadingPdf] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const pdfInputRef = useRef<HTMLInputElement>(null)
+
+  // Entrada data (when this vistoria is a saida)
+  const [entradaItems, setEntradaItems] = useState<InspectionItem[]>([])
+  const [entradaPhotos, setEntradaPhotos] = useState<InspectionPhoto[]>([])
+  const [entradaPhotosOpen, setEntradaPhotosOpen] = useState(false)
 
   // Lightbox state
   const [lightboxPhoto, setLightboxPhoto] = useState<InspectionPhoto | null>(null)
@@ -173,6 +180,39 @@ export default function VistoriaDetailPage() {
     }
   }, [inspection, checkCompanionInspection])
 
+  // When this is a saida and an entrada exists, load the entrada checklist + photos
+  useEffect(() => {
+    async function loadEntradaData() {
+      if (
+        !inspection ||
+        inspection.tipo !== 'saida' ||
+        !otherInspection ||
+        otherInspection.tipo !== 'entrada'
+      ) {
+        return
+      }
+
+      const [itemsRes, photosRes] = await Promise.all([
+        supabase
+          .from('inspection_items')
+          .select('*')
+          .eq('vistoria_id', otherInspection.id)
+          .order('comodo')
+          .order('ordem'),
+        supabase
+          .from('inspection_photos')
+          .select('*')
+          .eq('vistoria_id', otherInspection.id)
+          .order('comodo')
+          .order('created_at'),
+      ])
+
+      if (!itemsRes.error) setEntradaItems((itemsRes.data ?? []) as InspectionItem[])
+      if (!photosRes.error) setEntradaPhotos((photosRes.data ?? []) as InspectionPhoto[])
+    }
+    loadEntradaData()
+  }, [inspection, otherInspection])
+
   async function handleSaveObservacoes() {
     if (!inspection) return
     setSavingObs(true)
@@ -193,8 +233,17 @@ export default function VistoriaDetailPage() {
     }
   }
 
+  function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files
+    if (selected && selected.length > 0) {
+      setUploadFiles((prev) => [...prev, ...Array.from(selected)])
+    }
+    // Allow re-selecting the same file (e.g., taking multiple photos)
+    e.target.value = ''
+  }
+
   async function handleUploadPhotos() {
-    if (!uploadFiles || uploadFiles.length === 0) {
+    if (uploadFiles.length === 0) {
       toast.error('Selecione ao menos um arquivo')
       return
     }
@@ -205,13 +254,13 @@ export default function VistoriaDetailPage() {
     try {
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${crypto.randomUUID()}.${fileExt}`
+        const compressed = await compressImage(file)
+        const fileName = `${crypto.randomUUID()}.${compressed.ext}`
         const filePath = `${id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('vistorias')
-          .upload(filePath, file)
+          .upload(filePath, compressed.blob, { contentType: compressed.contentType })
 
         if (uploadError) {
           console.error(`Erro no upload de ${file.name}:`, uploadError)
@@ -248,8 +297,7 @@ export default function VistoriaDetailPage() {
       setUploadOpen(false)
       setUploadComodo('Sala')
       setUploadDescricao('')
-      setUploadFiles(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      setUploadFiles([])
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : (error as { message?: string })?.message || 'Erro desconhecido'
       toast.error(`Erro no upload: ${message}`)
@@ -414,6 +462,13 @@ export default function VistoriaDetailPage() {
               Comparar Vistorias
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/vistorias/${id}/laudo`)}
+          >
+            <Printer className="h-4 w-4" />
+            Gerar Laudo
+          </Button>
           <Button onClick={() => setUploadOpen(true)}>
             <Plus className="h-4 w-4" />
             Adicionar Fotos
@@ -494,6 +549,64 @@ export default function VistoriaDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Checklist */}
+      <VistoriaChecklist
+        vistoriaId={id}
+        imovelId={inspection.imovel_id}
+        entradaItems={
+          inspection.tipo === 'saida' && entradaItems.length > 0 ? entradaItems : undefined
+        }
+      />
+
+      {/* Fotos da entrada (read-only, when this is a saida) */}
+      {inspection.tipo === 'saida' && entradaPhotos.length > 0 && (
+        <Card>
+          <CardHeader
+            className="pb-3 cursor-pointer select-none"
+            onClick={() => setEntradaPhotosOpen((prev) => !prev)}
+          >
+            <CardTitle className="text-base flex items-center gap-2">
+              {entradaPhotosOpen ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <Camera className="h-4 w-4" />
+              Fotos da entrada ({entradaPhotos.length})
+            </CardTitle>
+          </CardHeader>
+          {entradaPhotosOpen && (
+            <CardContent className="space-y-6">
+              {Object.entries(groupByComodo(entradaPhotos)).map(([comodo, comodoPhotos]) => (
+                <div key={comodo}>
+                  <h3 className="text-sm font-semibold mb-2 border-b pb-1">{comodo}</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {comodoPhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="relative aspect-square overflow-hidden rounded-lg border cursor-pointer"
+                        onClick={() => setLightboxPhoto(photo)}
+                      >
+                        <img
+                          src={photo.url}
+                          alt={photo.descricao ?? photo.comodo}
+                          className="h-full w-full object-cover"
+                        />
+                        {photo.descricao && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
+                            <p className="text-[10px] text-white truncate">{photo.descricao}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Photo Gallery */}
       <div className="space-y-6">
@@ -615,19 +728,67 @@ export default function VistoriaDetailPage() {
               />
             </div>
             <div>
-              <Label htmlFor="upload_files">Fotos *</Label>
-              <Input
-                id="upload_files"
-                ref={fileInputRef}
+              <Label>Fotos *</Label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Camera className="h-4 w-4" />
+                  Tirar foto
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => galleryInputRef.current?.click()}
+                >
+                  <ImageUp className="h-4 w-4" />
+                  Galeria/Arquivos
+                </Button>
+              </div>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={handleFilesSelected}
+              />
+              <input
+                ref={galleryInputRef}
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => setUploadFiles(e.target.files)}
+                className="hidden"
+                onChange={handleFilesSelected}
               />
-              {uploadFiles && uploadFiles.length > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {uploadFiles.length} arquivo(s) selecionado(s)
-                </p>
+              {uploadFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {uploadFiles.map((file, idx) => (
+                    <div
+                      key={`${file.name}-${idx}`}
+                      className="flex items-center gap-2 rounded-md border px-2 py-1"
+                    >
+                      <Image className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs truncate flex-1">{file.name}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setUploadFiles((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        title="Remover"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    {uploadFiles.length} arquivo(s) selecionado(s)
+                  </p>
+                </div>
               )}
             </div>
             <div className="flex justify-end gap-2 pt-2">

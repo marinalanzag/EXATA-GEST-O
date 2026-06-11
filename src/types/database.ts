@@ -89,6 +89,30 @@ export interface InspectionPhoto {
   created_at: string
 }
 
+export type InspectionItemEstado = 'bom' | 'regular' | 'danificado'
+
+export interface InspectionItem {
+  id: string
+  vistoria_id: string
+  comodo: string
+  item: string
+  descricao?: string | null
+  estado: InspectionItemEstado
+  observacao?: string | null
+  ordem: number
+  created_at: string
+}
+
+export interface PropertyInventoryItem {
+  id: string
+  imovel_id: string
+  comodo: string
+  item: string
+  descricao?: string | null
+  ordem: number
+  created_at: string
+}
+
 export interface Expense {
   id: string
   imovel_id: string

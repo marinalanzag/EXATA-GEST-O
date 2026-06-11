@@ -38,6 +38,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { PropertyForm } from '@/components/forms/property-form'
+import { PropertyInventory } from '@/components/property-inventory'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -279,6 +280,7 @@ export default function PropertyDetailPage() {
         <TabsList>
           <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
           <TabsTrigger value="contrato">Contrato Ativo</TabsTrigger>
+          <TabsTrigger value="inventario">Inventário</TabsTrigger>
           <TabsTrigger value="vistorias">Vistorias</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="historico">Historico</TabsTrigger>
@@ -380,6 +382,11 @@ export default function PropertyDetailPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Inventario Tab */}
+        <TabsContent value="inventario">
+          <PropertyInventory imovelId={id} readOnly={!isGestor} />
         </TabsContent>
 
         {/* Vistorias Tab */}

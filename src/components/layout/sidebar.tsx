@@ -173,7 +173,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile trigger */}
-      <div className="fixed left-0 top-0 z-40 flex h-14 w-full items-center border-b bg-background px-4 lg:hidden">
+      <div className="fixed left-0 top-0 z-40 flex h-14 w-full items-center border-b bg-background px-4 lg:hidden print:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
             className={cn(
@@ -199,7 +199,7 @@ export function Sidebar() {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-background lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-background lg:block print:hidden">
         <SidebarContent />
       </aside>
     </>

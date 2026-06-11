@@ -47,10 +47,10 @@ export default function DashboardLayout({
   const isProprietario = profile?.role === 'proprietario'
 
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-background">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-background print:bg-white">
       <Sidebar />
-      <main className="lg:pl-64">
-        <div className="pt-14 lg:pt-0">
+      <main className="lg:pl-64 print:pl-0">
+        <div className="pt-14 lg:pt-0 print:pt-0">
           {isProprietario && (
             <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-center text-sm text-blue-800">
               Modo visualização — você pode consultar todas as informações, mas as edições são feitas pela gestão.

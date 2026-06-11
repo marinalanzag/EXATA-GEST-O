@@ -118,6 +118,54 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
 
       const inspectionId = created.id
 
+      // 1b. Saida guided by entrada: copy the entrada checklist into this vistoria
+      if (tipo === 'saida') {
+        try {
+          const { data: entrada } = await supabase
+            .from('inspections')
+            .select('id')
+            .eq('contrato_id', contratoId)
+            .eq('tipo', 'entrada')
+            .order('data', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (entrada) {
+            const { data: entradaItems, error: itemsError } = await supabase
+              .from('inspection_items')
+              .select('comodo, item, descricao, ordem')
+              .eq('vistoria_id', entrada.id)
+              .order('comodo')
+              .order('ordem')
+
+            if (!itemsError && entradaItems && entradaItems.length > 0) {
+              const rows = entradaItems.map((it) => ({
+                vistoria_id: inspectionId,
+                comodo: it.comodo,
+                item: it.item,
+                descricao: it.descricao ?? null,
+                estado: 'bom',
+                observacao: null,
+                ordem: it.ordem ?? 0,
+              }))
+
+              const { error: copyError } = await supabase
+                .from('inspection_items')
+                .insert(rows)
+
+              if (copyError) {
+                console.error('Erro ao copiar checklist da entrada:', copyError)
+                toast.error('Vistoria criada, mas erro ao copiar checklist da entrada')
+              } else {
+                toast.success('Checklist da entrada carregado')
+              }
+            }
+          }
+        } catch (copyError) {
+          console.error('Erro ao copiar checklist da entrada:', copyError)
+        }
+      }
+
       // 2. Upload PDF if provided
       if (pdfFile) {
         const pdfExt = pdfFile.name.split('.').pop() || 'pdf'
