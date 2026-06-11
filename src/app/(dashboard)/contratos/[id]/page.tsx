@@ -641,15 +641,32 @@ export default function ContratoDetailPage() {
           ) : (
             <div className="space-y-4">
               {inspections.map((insp) => (
-                <Card key={insp.id}>
+                <Card
+                  key={insp.id}
+                  className="cursor-pointer transition-shadow hover:shadow-md"
+                  onClick={() => router.push(`/vistorias/${insp.id}`)}
+                >
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">
-                        Vistoria de {insp.tipo === 'entrada' ? 'Entrada' : 'Saida'}
+                        Vistoria de {insp.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                       </CardTitle>
-                      <Badge variant="secondary">
-                        {formatDate(insp.data)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {formatDate(insp.data)}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/vistorias/${insp.id}`)
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                          Abrir
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
