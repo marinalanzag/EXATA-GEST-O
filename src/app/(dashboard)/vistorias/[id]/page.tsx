@@ -210,7 +210,7 @@ export default function VistoriaDetailPage() {
         const filePath = `${id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
-          .from('inspections')
+          .from('vistorias')
           .upload(filePath, file)
 
         if (uploadError) {
@@ -220,7 +220,7 @@ export default function VistoriaDetailPage() {
         }
 
         const { data: urlData } = supabase.storage
-          .from('inspections')
+          .from('vistorias')
           .getPublicUrl(filePath)
 
         const { error: insertError } = await supabase
@@ -270,7 +270,7 @@ export default function VistoriaDetailPage() {
       const urlParts = photo.url.split('/vistorias/')
       if (urlParts.length > 1) {
         const storagePath = urlParts[urlParts.length - 1]
-        await supabase.storage.from('inspections').remove([storagePath])
+        await supabase.storage.from('vistorias').remove([storagePath])
       }
 
       const { error } = await supabase
@@ -323,18 +323,18 @@ export default function VistoriaDetailPage() {
       if (inspection.pdf_url) {
         const oldParts = inspection.pdf_url.split('/inspections/')
         if (oldParts.length > 1) {
-          await supabase.storage.from('inspections').remove([oldParts[oldParts.length - 1]])
+          await supabase.storage.from('vistorias').remove([oldParts[oldParts.length - 1]])
         }
       }
 
       const { error: uploadError } = await supabase.storage
-        .from('inspections')
+        .from('vistorias')
         .upload(pdfPath, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       const { data: pdfUrl } = supabase.storage
-        .from('inspections')
+        .from('vistorias')
         .getPublicUrl(pdfPath)
 
       const { error: updateError } = await supabase

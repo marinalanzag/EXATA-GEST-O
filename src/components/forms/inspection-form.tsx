@@ -124,7 +124,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
         const pdfPath = `${inspectionId}/laudo.${pdfExt}`
 
         const { error: pdfUploadError } = await supabase.storage
-          .from('inspections')
+          .from('vistorias')
           .upload(pdfPath, pdfFile)
 
         if (pdfUploadError) {
@@ -132,7 +132,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
           toast.error('Vistoria criada, mas erro ao enviar PDF')
         } else {
           const { data: pdfUrl } = supabase.storage
-            .from('inspections')
+            .from('vistorias')
             .getPublicUrl(pdfPath)
 
           const { error: pdfLinkError } = await supabase
@@ -158,7 +158,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
           const filePath = `${inspectionId}/${fileName}`
 
           const { error: uploadError } = await supabase.storage
-            .from('inspections')
+            .from('vistorias')
             .upload(filePath, file)
 
           if (uploadError) {
@@ -168,7 +168,7 @@ export function InspectionForm({ contratoId: fixedContratoId, onSuccess, onCance
           }
 
           const { data: urlData } = supabase.storage
-            .from('inspections')
+            .from('vistorias')
             .getPublicUrl(filePath)
 
           const { error: insertError } = await supabase
