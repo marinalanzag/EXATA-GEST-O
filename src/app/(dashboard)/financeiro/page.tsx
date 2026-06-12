@@ -417,7 +417,7 @@ export default function FinanceiroPage() {
         .update(payload)
         .eq('id', editingExpense.id)
       if (error) {
-        toast.error('Erro ao atualizar despesa')
+        toast.error(`Erro ao atualizar despesa: ${error.message}`)
         console.error(error)
       } else {
         toast.success('Despesa atualizada com sucesso')
@@ -432,7 +432,7 @@ export default function FinanceiroPage() {
         .select()
         .single()
       if (error) {
-        toast.error('Erro ao criar despesa')
+        toast.error(`Erro ao criar despesa: ${error.message}`)
         console.error(error)
       } else {
         // Upload XML after insert (we need the ID)
