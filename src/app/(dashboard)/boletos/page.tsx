@@ -136,6 +136,7 @@ export default function BoletosPage() {
   // Edit boleto dialog (upload PDF + linha digitável)
   const [editBoleto, setEditBoleto] = useState<BoletoWithRelations | null>(null)
   const [editLinhaDigitavel, setEditLinhaDigitavel] = useState('')
+  const [editValor, setEditValor] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editUploading, setEditUploading] = useState(false)
   const pdfInputRef = useRef<HTMLInputElement>(null)
@@ -268,6 +269,7 @@ export default function BoletosPage() {
   function openEditBoleto(boleto: BoletoWithRelations) {
     setEditBoleto(boleto)
     setEditLinhaDigitavel(boleto.linha_digitavel || '')
+    setEditValor(String(boleto.valor).replace('.', ','))
   }
 
   async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -310,11 +312,18 @@ export default function BoletosPage() {
 
   async function handleSaveEditBoleto() {
     if (!editBoleto) return
+
+    const valor = parseFloat(editValor.replace(',', '.'))
+    if (isNaN(valor) || valor <= 0) {
+      toast.error('Informe um valor válido.')
+      return
+    }
+
     setEditSaving(true)
 
     const { error } = await supabase
       .from('boletos')
-      .update({ linha_digitavel: editLinhaDigitavel.trim() || null })
+      .update({ linha_digitavel: editLinhaDigitavel.trim() || null, valor })
       .eq('id', editBoleto.id)
 
     if (error) {
@@ -656,8 +665,19 @@ export default function BoletosPage() {
               <div className="rounded-lg border p-3 bg-muted/20 space-y-1 text-sm">
                 <p><span className="text-muted-foreground">Imóvel:</span> {nomeImovel(editBoleto.contrato?.imovel)}</p>
                 <p><span className="text-muted-foreground">Inquilino:</span> {editBoleto.contrato?.inquilino?.nome}</p>
-                <p><span className="text-muted-foreground">Valor:</span> {formatCurrency(editBoleto.valor)}</p>
                 <p><span className="text-muted-foreground">Vencimento:</span> {formatDate(editBoleto.data_vencimento)}</p>
+              </div>
+
+              {/* Valor */}
+              <div>
+                <Label htmlFor="edit-valor">Valor</Label>
+                <Input
+                  id="edit-valor"
+                  value={editValor}
+                  onChange={(e) => setEditValor(e.target.value)}
+                  placeholder="0,00"
+                  inputMode="decimal"
+                />
               </div>
 
               {/* PDF Upload */}

@@ -27,6 +27,7 @@ import {
   BarChart3,
   Users,
   BookOpen,
+  Camera,
 } from 'lucide-react'
 import type { UserRole } from '@/types/database'
 
@@ -41,6 +42,7 @@ const navItemsByRole: Record<UserRole, NavItem[]> = {
     { label: 'Dashboard', href: '/dashboard', icon: Home },
     { label: 'Imóveis', href: '/imoveis', icon: Building2 },
     { label: 'Contratos', href: '/contratos', icon: FileText },
+    { label: 'Vistorias', href: '/vistorias', icon: Camera },
     { label: 'Financeiro', href: '/financeiro', icon: DollarSign },
     { label: 'Boletos', href: '/boletos', icon: Receipt },
     { label: 'Notas Fiscais', href: '/notas-fiscais', icon: BarChart3 },
@@ -52,6 +54,7 @@ const navItemsByRole: Record<UserRole, NavItem[]> = {
     { label: 'Dashboard', href: '/dashboard', icon: Home },
     { label: 'Imóveis', href: '/imoveis', icon: Building2 },
     { label: 'Contratos', href: '/contratos', icon: FileText },
+    { label: 'Vistorias', href: '/vistorias', icon: Camera },
     { label: 'Financeiro', href: '/financeiro', icon: DollarSign },
     { label: 'Boletos', href: '/boletos', icon: Receipt },
     { label: 'Notas Fiscais', href: '/notas-fiscais', icon: BarChart3 },
